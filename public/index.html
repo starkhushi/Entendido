@@ -93,7 +93,7 @@
     <section id="glance" aria-label="At a glance"></section>
     <article id="brief"></article>
   </div>
-  <p class="ver">Version: charts-2</p>
+  <p class="ver">Version: charts-3</p>
 </main>
 <div id="tip" role="tooltip"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
@@ -286,11 +286,11 @@ $("f").addEventListener("submit", async ev => {
 $("dl").onclick = () => {
   const slug = last.company.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([last.brief], { type: "text/markdown" }));
+  a.href = URL.createObjectURL(new Blob([last.export || last.brief], { type: "text/markdown" }));
   a.download = `${slug}.md`; a.click();
 };
 $("pdf").onclick = () => window.print();
-$("cp").onclick = async () => { await navigator.clipboard.writeText(last.brief); $("cp").textContent = "Copied"; setTimeout(() => $("cp").textContent = "Copy text", 1500); };
+$("cp").onclick = async () => { await navigator.clipboard.writeText(last.export || last.brief); $("cp").textContent = "Copied"; setTimeout(() => $("cp").textContent = "Copy text", 1500); };
 </script>
 </body>
 </html>

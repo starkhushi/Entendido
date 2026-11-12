@@ -263,6 +263,52 @@ def coverage(sources):
     return [{"month": k, "count": counts.get(k, 0)} for k in months]
 
 
+TYPE_NAMES = {"deal": "Deal / M&A", "leadership": "Leadership", "growth": "Growth",
+              "legal": "Legal / sensitive"}
+
+
+def glance_md(viz):
+    """The chart data as Markdown, so copied or downloaded briefs keep the analysis."""
+    cite = lambda c: f" [{', '.join(map(str, c))}]" if isinstance(c, list) and c else ""
+    out = ["## At A Glance"]
+    kn = viz.get("key_numbers") or []
+    if kn:
+        out += ["", "| Key number | Value | Note |", "| :--- | :--- | :--- |"]
+        out += [f"| {k.get('label', '')} | **{k.get('value', '')}** | {k.get('note', '')}{cite(k.get('cite'))} |"
+                for k in kn[:4]]
+    fit = viz.get("fit") or []
+    if fit:
+        scores = [max(0, min(5, int(f.get("score") or 0))) for f in fit]
+        out += ["", f"**Fit signals: {sum(scores) / len(scores):.1f} out of 5 on average** "
+                    "(the agent's judgement, not facts)", "",
+                "| Signal | Score | Why |", "| :--- | :--- | :--- |"]
+        out += [f"| {f.get('criterion', '')} | {'█' * sc}{'░' * (5 - sc)} {sc}/5 | {f.get('why', '')} |"
+                for f, sc in zip(fit, scores)]
+    tl = sorted(viz.get("timeline") or [], key=lambda e: str(e.get("date")))
+    if tl:
+        out += ["", "| When | Event | Type |", "| :--- | :--- | :--- |"]
+        out += [f"| {e.get('date', '')} | {e.get('event', '')}{cite(e.get('cite'))} | "
+                f"{TYPE_NAMES.get(e.get('type'), 'Growth')} |" for e in tl]
+    cov = [c for c in viz.get("coverage") or [] if c.get("count")]
+    if len(cov) >= 2:
+        out += ["", "News coverage by month (dated sources read): "
+                + ", ".join(f"{c['month']}: {c['count']}" for c in cov)]
+    t = viz.get("trend")
+    if t:
+        out += ["", f"{t.get('label', 'Trend')}{cite(t.get('cite'))}: "
+                + ", ".join(f"{p['x']} {p['y']:,}" for p in t["points"])]
+    return "\n".join(out) if len(out) > 1 else ""
+
+
+def with_glance(brief, viz):
+    """Insert the At A Glance section right after the title and subtitle."""
+    g = glance_md(viz)
+    if not g:
+        return brief
+    parts = brief.split("\n## ", 1)
+    return parts[0].rstrip() + "\n\n" + g + ("\n\n## " + parts[1] if len(parts) > 1 else "")
+
+
 def write_brief(company, focus, sources, detailed=False):
     src_block = "\n\n".join(
         f"[{i}] {s['title']} ({s['date'] or 'n.d.'}) {s['url']}\n{s['snippet']}\n{s['text']}"
@@ -354,7 +400,7 @@ def run(company, focus="", log=print, save=True, detailed=False):
         os.makedirs(os.path.join(HERE, "output"), exist_ok=True)
         path = os.path.join(HERE, "output", f"{slug}.md")
         with open(path, "w", encoding="utf-8") as f:
-            f.write(brief)
+            f.write(with_glance(brief, viz))
         with open(os.path.join(HERE, "output", f"{slug}.sources.json"), "w", encoding="utf-8") as f:
             json.dump(sources, f, indent=1, ensure_ascii=False)
         with open(os.path.join(HERE, "output", f"{slug}.viz.json"), "w", encoding="utf-8") as f:

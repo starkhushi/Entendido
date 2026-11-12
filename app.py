@@ -24,7 +24,7 @@ def brief():
     if not company:
         return jsonify(error="Type a company name."), 400
     try:
-        from agent3_brief import run
+        from agent3_brief import run, with_glance
         text, sources, viz = run(company, focus, log=lambda m: print(m, flush=True), save=False,
                             detailed=bool(req.get("detailed")))
     except Exception as e:
@@ -32,7 +32,8 @@ def brief():
         hint = " Gemini is busy. Wait a minute and try again." if msg[:3] in ("429", "503") else ""
         return jsonify(error=f"{type(e).__name__}: {msg[:300]}{hint}"), 500
     slim = [{"title": s["title"], "url": s["url"], "date": s["date"]} for s in sources]
-    return jsonify(company=company, brief=text, sources=slim, viz=viz)
+    return jsonify(company=company, brief=text, export=with_glance(text, viz),
+                   sources=slim, viz=viz)
 
 
 if __name__ == "__main__":
