@@ -34,7 +34,6 @@
   <form id="f">
     <label>Company <input id="company" required placeholder="e.g. Emcure Pharmaceuticals"></label>
     <label>Focus (optional) <input id="focus" placeholder="e.g. the Gennova subsidiary"></label>
-    <label>Team password <input id="password" type="password" autocomplete="current-password"></label>
     <button id="go">Write brief</button>
   </form>
   <p id="status"></p>
@@ -47,7 +46,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-try { $("password").value = localStorage.getItem("pw") || ""; } catch (e) {}
 let last = null;
 $("f").addEventListener("submit", async ev => {
   ev.preventDefault();
@@ -61,10 +59,9 @@ $("f").addEventListener("submit", async ev => {
   }, 1000);
   try {
     const r = await fetch("/api/brief", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ company: $("company").value, focus: $("focus").value, password: $("password").value }) });
+      body: JSON.stringify({ company: $("company").value, focus: $("focus").value }) });
     const data = await r.json().catch(() => ({ error: r.status === 504 ? "The run took longer than 5 minutes. Try again." : `Server error ${r.status}.` }));
     if (!r.ok) throw new Error(data.error || `Error ${r.status}`);
-    try { localStorage.setItem("pw", $("password").value); } catch (e) {}
     last = data;
     $("brief").innerHTML = DOMPurify.sanitize(marked.parse(data.brief));
     $("brief").querySelectorAll("a").forEach(a => { a.target = "_blank"; a.rel = "noopener"; });

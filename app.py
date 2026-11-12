@@ -17,9 +17,6 @@ def page():
 @app.post("/api/brief")
 def brief():
     req = request.get_json(silent=True) or {}
-    password = os.environ.get("APP_PASSWORD")
-    if password and req.get("password") != password:
-        return jsonify(error="Wrong password."), 401
     company = (req.get("company") or "").strip()[:120]
     focus = (req.get("focus") or "").strip()[:200]
     if not company:

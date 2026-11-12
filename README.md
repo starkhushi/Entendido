@@ -41,17 +41,18 @@ A run takes two or three minutes and uses two Gemini calls.
 ## Web page for the team (Vercel)
 
 `public/index.html` is the page and `app.py` is the backend (a small Flask app). The team opens the
-link, types a company, enters the team password and clicks "Write brief". The brief
+link, types a company and clicks "Write brief". The brief
 shows on screen with Download and Copy buttons. A run takes one to two minutes.
 
 Deploy free on Vercel Hobby:
 
 1. Go to vercel.com, sign in with GitHub, click "Add New", then "Project".
 2. Import this repository. Leave Framework Preset as "Other" and the build settings empty.
-3. Under Environment Variables add `GEMINI_API_KEY`, `SERP_API_KEY` and `APP_PASSWORD`.
+3. Under Environment Variables add `GEMINI_API_KEY` and `SERP_API_KEY`.
 4. Click Deploy. Every `git push` redeploys automatically.
 
-The password stops strangers using up the free API quota. Vercel cuts a request off
+The page has no password, so anyone with the link can use up the free API quota.
+Share the link only inside the team. Vercel cuts a request off
 at 5 minutes. Searches and page reads run in parallel to stay well inside that.
 
 ## Run Agent 3 from GitHub Actions
