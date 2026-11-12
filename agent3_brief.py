@@ -215,6 +215,54 @@ def fetch_text(url, limit=5000):
         return url, ""
 
 
+def split_viz(text):
+    """Pull the trailing ```json chart block off the brief. Returns (markdown, dict)."""
+    m = re.search(r"```json\s*(\{.*\})\s*```\s*$", text.strip(), re.S)
+    if not m:
+        return text.strip(), {}
+    try:
+        viz = json.loads(m.group(1))
+    except Exception:
+        viz = {}
+    viz = viz if isinstance(viz, dict) else {}
+    # A trend chart must compare like with like: all years or all quarters, 2+ points.
+    t = viz.get("trend") or {}
+    pts = [p for p in t.get("points", []) if isinstance(p.get("y"), (int, float))]
+    kinds = {bool(re.search(r"Q[1-4]|H[12]", str(p.get("x")))) for p in pts}
+    viz["trend"] = dict(t, points=pts) if len(pts) >= 2 and len(kinds) == 1 else None
+    return text.strip()[:m.start()].rstrip(), viz
+
+
+def coverage(sources):
+    """Count dated sources per month, from the dates the search engines returned."""
+    from email.utils import parsedate_to_datetime
+    counts = {}
+    for s in sources:
+        d, when = (s.get("date") or "").strip(), None
+        for parse in (lambda x: parsedate_to_datetime(x),
+                      lambda x: datetime.datetime.strptime(x[:16].strip(), "%a, %d %b %Y"),
+                      lambda x: datetime.datetime.fromisoformat(x[:10]),
+                      lambda x: datetime.datetime.strptime(x[:12].strip(), "%b %d, %Y")):
+            try:
+                when = parse(d)
+                break
+            except Exception:
+                pass
+        if when:
+            key = when.strftime("%Y-%m")
+            counts[key] = counts.get(key, 0) + 1
+    if not counts:
+        return []
+    # Fill empty months so the time axis is even. Show at most the last 12.
+    y, m = map(int, max(counts).split("-"))
+    months = []
+    for _ in range(12):
+        months.append(f"{y:04d}-{m:02d}")
+        y, m = (y, m - 1) if m > 1 else (y - 1, 12)
+    months = [k for k in reversed(months) if k >= min(counts)]
+    return [{"month": k, "count": counts.get(k, 0)} for k in months]
+
+
 def write_brief(company, focus, sources, detailed=False):
     src_block = "\n\n".join(
         f"[{i}] {s['title']} ({s['date'] or 'n.d.'}) {s['url']}\n{s['snippet']}\n{s['text']}"
@@ -257,13 +305,33 @@ One line: High / Medium / Low with a one-sentence reason.
 ## Sources
 Numbered list, title and URL, only the ones you cited.
 
+After the Sources list, end with ONE fenced ```json block (nothing after it) holding
+chart data. Use only numbers and dates stated in the sources, each with its citation.
+Leave a list empty rather than guessing.
+```json
+{{"key_numbers": [{{"label": "Employees", "value": "19,000", "note": "June 2026", "cite": [13]}}],
+  "timeline": [{{"date": "2024-10", "event": "Acquired Bharat Serums", "type": "deal", "cite": [1]}}],
+  "fit": [{{"criterion": "Big job to do", "score": 4, "why": "one short line"}},
+          {{"criterion": "Leadership group changed shape", "score": 3, "why": "..."}},
+          {{"criterion": "A single unit we can sell to", "score": 3, "why": "..."}},
+          {{"criterion": "Low procurement / HR-bureaucracy risk", "score": 2, "why": "..."}},
+          {{"criterion": "Timing is now", "score": 3, "why": "..."}}],
+  "trend": {{"label": "Revenue (Rs crore)", "points": [{{"x": "FY24", "y": 10335}}], "cite": [4]}}
+}}
+```
+Rules: key_numbers at most 4 (revenue, employees, deal size, market cap, growth...).
+timeline up to 8 events, date as YYYY-MM or YYYY, type one of deal, leadership,
+growth, legal. fit: exactly those five criteria, score 0 to 5. trend: one financial
+series with 2 to 6 points over time, all the same period type (all financial years or
+all quarters) and the same unit, values exactly as the source states them; or null.
+
 SOURCES:
 {src_block}"""
     return ask(prompt, models=DETAILED if detailed else FAST)
 
 
 def run(company, focus="", log=print, save=True, detailed=False):
-    """Research a company and return (brief_markdown, sources). Also saves to output/."""
+    """Research a company. Returns (brief_markdown, sources, chart_data)."""
     queries, news_queries = plan_queries(company, focus)
     log(f"Searching Google with {len(queries) + len(news_queries)} queries")
     hits = search(queries, news_queries)
@@ -279,7 +347,8 @@ def run(company, focus="", log=print, save=True, detailed=False):
         if h["text"] or h["snippet"]:
             sources.append(h)
     log(f"Writing brief from {len(sources)} sources")
-    brief = write_brief(company, focus, sources, detailed)
+    brief, viz = split_viz(write_brief(company, focus, sources, detailed))
+    viz["coverage"] = coverage(sources)
     if save:  # the Vercel filesystem is read-only, so the web version skips this
         slug = re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")
         os.makedirs(os.path.join(HERE, "output"), exist_ok=True)
@@ -288,8 +357,10 @@ def run(company, focus="", log=print, save=True, detailed=False):
             f.write(brief)
         with open(os.path.join(HERE, "output", f"{slug}.sources.json"), "w", encoding="utf-8") as f:
             json.dump(sources, f, indent=1, ensure_ascii=False)
+        with open(os.path.join(HERE, "output", f"{slug}.viz.json"), "w", encoding="utf-8") as f:
+            json.dump(viz, f, indent=1, ensure_ascii=False)
         log(f"Saved {path}")
-    return brief, sources
+    return brief, sources, viz
 
 
 def main():

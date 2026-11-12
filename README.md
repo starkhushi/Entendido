@@ -48,7 +48,9 @@ A run uses about 10 searches and one Gemini call.
 
 `public/index.html` is the page and `app.py` is the backend (a small Flask app). The team opens the
 link, types a company and clicks "Write brief". The brief
-shows on screen with Download and Copy buttons. A run takes about 20 seconds.
+shows on screen with Download and Copy buttons, under an "At a glance" panel:
+key numbers, fit-signal scores, news coverage by month, an event timeline, and a
+revenue trend when the sources give one. Every number carries its source number. A run takes about 20 seconds.
 
 Deploy free on Vercel Hobby:
 

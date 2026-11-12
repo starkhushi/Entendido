@@ -23,10 +23,49 @@
   #status { margin:20px 0 0; color:var(--muted); min-height:1.5em; }
   #status.err { color:var(--err); }
   #result { display:none; margin-top:20px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 24px 24px; }
+  @media (max-width:480px) { #result { padding:8px 14px 18px; } .panel { padding:12px; } }
   #result table { border-collapse:collapse; width:100%; font-size:.92rem; display:block; overflow-x:auto; }
   #result th, #result td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
   #result a { color:var(--accent); word-break:break-word; }
   .bar { display:flex; gap:10px; flex-wrap:wrap; margin:16px 0 0; }
+
+  /* At a glance panel */
+  :root { --series-1:#2a78d6; --t-deal:#2a78d6; --t-leadership:#eb6834; --t-growth:#1baf7a; --t-legal:#eda100; --track:#ebe9e3; --tip-bg:#1d1d1b; --tip-ink:#ffffff; }
+  @media (prefers-color-scheme: dark) { :root { --series-1:#3987e5; --t-deal:#3987e5; --t-leadership:#d95926; --t-growth:#199e70; --t-legal:#c98500; --track:#2c2b28; --tip-bg:#ecebe6; --tip-ink:#161615; } }
+  #glance { margin:16px 0 8px; display:grid; gap:16px; }
+  #glance h2 { font-size:1.05rem; margin:0 0 2px; }
+  .sub { color:var(--muted); font-size:.85rem; margin:0 0 10px; }
+  .panel { border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:var(--bg); min-width:0; }
+  .grid2 { display:grid; gap:16px; grid-template-columns:repeat(auto-fit, minmax(min(300px, 100%), 1fr)); align-items:start; }
+  .kpis { display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(min(150px, 100%), 1fr)); }
+  .kpi { border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:var(--bg); }
+  .kpi .v { font-size:1.6rem; font-weight:700; line-height:1.2; font-variant-numeric:tabular-nums; }
+  .kpi .l { font-weight:600; font-size:.9rem; }
+  .kpi .n { color:var(--muted); font-size:.8rem; }
+  .meter { display:grid; grid-template-columns:minmax(0,1fr) 110px 34px; gap:4px 10px; align-items:center; margin:0 0 10px; }
+  .meter .name { font-size:.9rem; font-weight:600; }
+  .meter .why { grid-column:1 / -1; color:var(--muted); font-size:.8rem; margin-top:-2px; }
+  .track { height:8px; border-radius:4px; background:var(--track); overflow:hidden; }
+  .fill { height:100%; border-radius:4px; background:var(--series-1); }
+  .meter .fig { font-variant-numeric:tabular-nums; font-size:.9rem; text-align:right; }
+  @media (max-width:480px) { .meter { grid-template-columns:minmax(0,1fr) 34px; } .meter .track { grid-column:1 / -1; order:3; } }
+  .overall { font-size:1.9rem; font-weight:700; margin-right:6px; color:var(--ink); }
+  .tl { list-style:none; margin:0; padding:0; }
+  .tl li { display:grid; grid-template-columns:72px 14px 1fr; gap:10px; align-items:start; padding:6px 0; border-top:1px solid var(--line); }
+  .tl li:first-child { border-top:0; }
+  .tl .d { color:var(--muted); font-size:.85rem; font-variant-numeric:tabular-nums; }
+  .dot { width:10px; height:10px; border-radius:50%; margin-top:6px; box-shadow:0 0 0 2px var(--bg); }
+  .chip { display:inline-block; font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-left:6px; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:.8rem; color:var(--muted); margin:0 0 8px; }
+  .legend span::before { content:""; display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; background:var(--c); }
+  .chart svg { display:block; width:100%; overflow:visible; }
+  .chart text { fill:var(--muted); font-size:11px; font-family:inherit; }
+  .chart .base { stroke:var(--line); }
+  .chart .bar { fill:var(--series-1); }
+  .chart .hit { fill:transparent; }
+  .chart g:hover .bar { opacity:.8; }
+  #tip { position:fixed; pointer-events:none; background:var(--tip-bg); color:var(--tip-ink); font-size:.8rem; padding:6px 9px; border-radius:6px; display:none; z-index:10; max-width:240px; }
+  .empty { color:var(--muted); font-size:.85rem; }
 </style>
 </head>
 <body>
@@ -42,13 +81,172 @@
   <p id="status"></p>
   <div id="result">
     <div class="bar"><button class="ghost" id="dl" type="button">Download brief (.md)</button><button class="ghost" id="cp" type="button">Copy text</button></div>
+    <section id="glance" aria-label="At a glance"></section>
     <article id="brief"></article>
   </div>
 </main>
+<div id="tip" role="tooltip"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <script>
 const $ = id => document.getElementById(id);
+// ---------- At a glance: charts built from the brief's chart data ----------
+const el = (tag, attrs = {}, text) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  if (text != null) n.textContent = text;
+  return n;
+};
+const svgEl = (tag, attrs = {}) => {
+  const n = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  return n;
+};
+const cite = c => (Array.isArray(c) && c.length) ? " [" + c.join(", ") + "]" : "";
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const fmtMonth = ym => { const [y, m] = String(ym).split("-"); return m ? `${MONTHS[+m - 1]} ${y}` : y; };
+const shortMonth = ym => { const [y, m] = String(ym).split("-"); return m ? `${MONTHS[+m - 1]} '${y.slice(2)}` : y; };
+const fmtNum = n => Number(n).toLocaleString("en-IN");
+const tip = $("tip");
+const showTip = (ev, text) => {
+  tip.textContent = text; tip.style.display = "block";
+  const x = Math.min(ev.clientX + 12, window.innerWidth - tip.offsetWidth - 8);
+  tip.style.left = x + "px"; tip.style.top = (ev.clientY - tip.offsetHeight - 10) + "px";
+};
+const hideTip = () => { tip.style.display = "none"; };
+
+// Column chart: one series, thin bars with 2px gaps, rounded data ends, hover tooltip.
+function columns(box, items, height = 150) {
+  box.textContent = "";
+  const W = Math.max(box.clientWidth, 260), H = height, padB = 22, padT = 18;
+  const max = Math.max(...items.map(d => d.value), 1);
+  const slot = W / items.length, bw = Math.max(Math.min(slot - 2, 44), 3);
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img", "aria-label": box.dataset.label || "" });
+  svg.appendChild(svgEl("line", { x1: 0, x2: W, y1: H - padB, y2: H - padB, class: "base" }));
+  const every = Math.max(1, Math.ceil(items.length / Math.max(1, Math.floor(W / 56))));
+  let maxShown = false;
+  items.forEach((d, i) => {
+    const h = d.value ? Math.max((d.value / max) * (H - padB - padT), 2) : 0;
+    const x = i * slot + (slot - bw) / 2, y = H - padB - h, r = Math.min(4, bw / 2, h);
+    const g = svgEl("g");
+    if (h) g.appendChild(svgEl("path", { class: "bar",
+      d: `M${x},${H - padB} V${y + r} Q${x},${y} ${x + r},${y} H${x + bw - r} Q${x + bw},${y} ${x + bw},${y + r} V${H - padB} Z` }));
+    if (i % every === 0 || i === items.length - 1) {
+      const t = svgEl("text", { x: i * slot + slot / 2, y: H - 6, "text-anchor": "middle" });
+      t.textContent = d.label; g.appendChild(t);
+    }
+    if (d.value === max && !maxShown) {
+      maxShown = true;
+      const t = svgEl("text", { x: i * slot + slot / 2, y: y - 5, "text-anchor": "middle" });
+      t.textContent = d.show ?? d.value; g.appendChild(t);
+    }
+    const hit = svgEl("rect", { class: "hit", x: i * slot, y: 0, width: slot, height: H });
+    hit.addEventListener("mousemove", ev => showTip(ev, d.tip));
+    hit.addEventListener("mouseleave", hideTip);
+    g.appendChild(hit);
+    svg.appendChild(g);
+  });
+  box.appendChild(svg);
+}
+
+const TYPES = { deal: "Deal / M&A", leadership: "Leadership", growth: "Growth", legal: "Legal / sensitive" };
+let charts = [];
+function renderGlance(viz) {
+  const root = $("glance"); root.textContent = ""; charts = [];
+  if (!viz) return;
+  root.appendChild(el("h2", {}, "At a glance"));
+  root.appendChild(el("p", { class: "sub" }, "Built from the same sources as the brief. Numbers in brackets are source numbers. Scores are the agent's judgement, not facts."));
+
+  const kn = (viz.key_numbers || []).slice(0, 4);
+  if (kn.length) {
+    const row = el("div", { class: "kpis" });
+    kn.forEach(k => {
+      const t = el("div", { class: "kpi" });
+      t.appendChild(el("div", { class: "v" }, k.value));
+      t.appendChild(el("div", { class: "l" }, k.label));
+      t.appendChild(el("div", { class: "n" }, (k.note || "") + cite(k.cite)));
+      row.appendChild(t);
+    });
+    root.appendChild(row);
+  }
+
+  const grid = el("div", { class: "grid2" });
+  const fit = viz.fit || [];
+  if (fit.length) {
+    const p = el("div", { class: "panel" });
+    const avg = fit.reduce((a, f) => a + (+f.score || 0), 0) / fit.length;
+    p.appendChild(el("h2", {}, "Fit signals"));
+    const o = el("div", { class: "sub" });
+    o.appendChild(el("span", { class: "overall" }, avg.toFixed(1)));
+    o.append("out of 5 on average");
+    p.appendChild(o);
+    fit.forEach(f => {
+      const sc = Math.max(0, Math.min(5, +f.score || 0));
+      const m = el("div", { class: "meter" });
+      m.appendChild(el("div", { class: "name" }, f.criterion));
+      const tr = el("div", { class: "track", role: "meter", "aria-valuemin": 0, "aria-valuemax": 5, "aria-valuenow": sc, "aria-label": f.criterion });
+      const fl = el("div", { class: "fill" }); fl.style.width = (sc / 5 * 100) + "%";
+      tr.appendChild(fl); m.appendChild(tr);
+      m.appendChild(el("div", { class: "fig" }, `${sc}/5`));
+      if (f.why) m.appendChild(el("div", { class: "why" }, f.why));
+      p.appendChild(m);
+    });
+    grid.appendChild(p);
+  }
+
+  const cov = viz.coverage || [];
+  const cp = el("div", { class: "panel" });
+  cp.appendChild(el("h2", {}, "News coverage by month"));
+  cp.appendChild(el("p", { class: "sub" }, "Dated sources the agent read. A spike usually marks the trigger event."));
+  if (cov.filter(c => c.count).length >= 2) {
+    const box = el("div", { class: "chart", "data-label": "Dated sources per month" });
+    cp.appendChild(box);
+    const items = cov.map(c => ({ label: shortMonth(c.month), value: c.count,
+      tip: `${fmtMonth(c.month)}: ${c.count} source${c.count === 1 ? "" : "s"}` }));
+    charts.push(() => columns(box, items));
+  } else cp.appendChild(el("p", { class: "empty" }, "Too few dated sources to chart."));
+  grid.appendChild(cp);
+  root.appendChild(grid);
+
+  const grid2 = el("div", { class: "grid2" });
+  const tl = (viz.timeline || []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  if (tl.length) {
+    const p = el("div", { class: "panel" });
+    p.appendChild(el("h2", {}, "Event timeline"));
+    const kind = e => TYPES[e.type] ? e.type : "growth";
+    const lg = el("div", { class: "legend" });
+    [...new Set(tl.map(kind))].forEach(t => {
+      const s = el("span", {}, TYPES[t]); s.style.setProperty("--c", `var(--t-${t})`); lg.appendChild(s);
+    });
+    p.appendChild(lg);
+    const ul = el("ul", { class: "tl" });
+    tl.forEach(e => {
+      const t = kind(e), li = el("li");
+      li.appendChild(el("span", { class: "d" }, fmtMonth(e.date)));
+      const dot = el("span", { class: "dot" }); dot.style.background = `var(--t-${t})`; li.appendChild(dot);
+      const txt = el("span", {}, e.event + cite(e.cite));
+      txt.appendChild(el("span", { class: "chip" }, TYPES[t]));
+      li.appendChild(txt); ul.appendChild(li);
+    });
+    p.appendChild(ul); grid2.appendChild(p);
+  }
+  const tr = viz.trend;
+  if (tr && (tr.points || []).length >= 2) {
+    const p = el("div", { class: "panel" });
+    p.appendChild(el("h2", {}, tr.label || "Trend"));
+    p.appendChild(el("p", { class: "sub" }, "As stated in the sources" + cite(tr.cite) + ". Check before quoting."));
+    const box = el("div", { class: "chart", "data-label": tr.label || "Trend" });
+    p.appendChild(box);
+    const items = tr.points.map(pt => ({ label: String(pt.x), value: +pt.y, show: fmtNum(pt.y), tip: `${pt.x}: ${fmtNum(pt.y)}` }));
+    charts.push(() => columns(box, items, 170));
+    grid2.appendChild(p);
+  }
+  if (grid2.children.length) root.appendChild(grid2);
+}
+const drawCharts = () => charts.forEach(f => f());
+let rz;
+window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(drawCharts, 150); });
+
 let last = null;
 $("f").addEventListener("submit", async ev => {
   ev.preventDefault();
@@ -69,6 +267,7 @@ $("f").addEventListener("submit", async ev => {
     $("brief").innerHTML = DOMPurify.sanitize(marked.parse(data.brief));
     $("brief").querySelectorAll("a").forEach(a => { a.target = "_blank"; a.rel = "noopener"; });
     $("result").style.display = "block";
+    renderGlance(data.viz); drawCharts();
     status.textContent = `Done in ${Math.round((Date.now() - t0) / 1000)}s from ${data.sources.length} sources.`;
   } catch (e) {
     status.className = "err"; status.textContent = e.message;
