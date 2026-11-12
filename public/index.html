@@ -13,6 +13,8 @@
   h1 { font-size:1.6rem; margin:0 0 4px; }
   .lede { color:var(--muted); margin:0 0 24px; }
   form { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; display:grid; gap:14px; }
+  .check { display:flex; align-items:center; gap:8px; font-weight:500; }
+  .check input { width:auto; }
   label { font-weight:600; font-size:.9rem; display:grid; gap:6px; }
   input { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); width:100%; }
   button { font:inherit; font-weight:600; padding:11px 18px; border:0; border-radius:8px; background:var(--accent); color:var(--accent-ink); cursor:pointer; justify-self:start; }
@@ -30,10 +32,11 @@
 <body>
 <main>
   <h1>Prospect brief writer</h1>
-  <p class="lede">Type a company. The agent searches the web, reads about 30 pages and writes a one-page brief in the Emcure/Gennova format. It takes one to three minutes.</p>
+  <p class="lede">Type a company. The agent searches the web, reads about 30 pages and writes a one-page brief in the Emcure/Gennova format. It takes about 30 seconds.</p>
   <form id="f">
     <label>Company <input id="company" required placeholder="e.g. Emcure Pharmaceuticals"></label>
     <label>Focus (optional) <input id="focus" placeholder="e.g. the Gennova subsidiary"></label>
+    <label class="check"><input id="detailed" type="checkbox"> Detailed brief (slower, about a minute)</label>
     <button id="go">Write brief</button>
   </form>
   <p id="status"></p>
@@ -54,12 +57,12 @@ $("f").addEventListener("submit", async ev => {
   const t0 = Date.now();
   const tick = setInterval(() => {
     const s = Math.round((Date.now() - t0) / 1000);
-    const step = s < 10 ? "Planning searches" : s < 35 ? "Searching Google" : s < 60 ? "Reading pages" : "Writing the brief";
+    const step = s < 6 ? "Searching" : s < 16 ? "Reading pages" : "Writing the brief";
     status.textContent = `${step}... ${s}s`;
   }, 1000);
   try {
     const r = await fetch("/api/brief", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ company: $("company").value, focus: $("focus").value }) });
+      body: JSON.stringify({ company: $("company").value, focus: $("focus").value, detailed: $("detailed").checked }) });
     const data = await r.json().catch(() => ({ error: r.status === 504 ? "The run took longer than 5 minutes. Try again." : `Server error ${r.status}.` }));
     if (!r.ok) throw new Error(data.error || `Error ${r.status}`);
     last = data;

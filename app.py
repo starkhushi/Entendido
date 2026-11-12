@@ -23,7 +23,8 @@ def brief():
         return jsonify(error="Type a company name."), 400
     try:
         from agent3_brief import run
-        text, sources = run(company, focus, log=lambda m: print(m, flush=True), save=False)
+        text, sources = run(company, focus, log=lambda m: print(m, flush=True), save=False,
+                            detailed=bool(req.get("detailed")))
     except Exception as e:
         msg = str(e)
         hint = " Gemini is busy. Wait a minute and try again." if msg[:3] in ("429", "503") else ""

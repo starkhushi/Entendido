@@ -1,8 +1,8 @@
 # Entendido prospecting agents
 
 Three agents that do the first pass of prospecting so the team only spends time on
-companies worth a conversation. Built on a free stack: Google search through the SearchApi.io free plan
-(DuckDuckGo as fallback), plain page fetches, and the Gemini free tier.
+companies worth a conversation. Built on a free stack: Tavily search (1,000 free searches a month), with SearchApi.io
+and DuckDuckGo as fallbacks, plain page fetches, and the Gemini free tier.
 
 | Agent | Status | What it does |
 |---|---|---|
@@ -16,15 +16,17 @@ companies worth a conversation. Built on a free stack: Google search through the
 pip install -r requirements.txt
 ```
 
-Create a `.env` file next to the scripts with two lines:
+Create a `.env` file next to the scripts:
 
 ```
 GEMINI_API_KEY=your-key-from-aistudio.google.com/apikey
-SERP_API_KEY=your-key-from-searchapi.io
+TAVILY_API_KEY=your-key-from-app.tavily.com
+SERP_API_KEY=optional-key-from-searchapi.io
 ```
 
-The SearchApi key is optional. Without it the script falls back to DuckDuckGo, which
-is free but gets throttled and misses Indian business news.
+Search tries Tavily, then SearchApi, then DuckDuckGo. Tavily's free plan resets every
+month. SearchApi's free plan is 100 searches in total and is already used up.
+DuckDuckGo needs no key but is weaker on Indian business news.
 
 `.env` is git-ignored. Never commit the key. For GitHub Actions, add it as a repository secret.
 
@@ -33,27 +35,31 @@ is free but gets throttled and misses Indian business news.
 ```
 python agent3_brief.py "Company name"
 python agent3_brief.py "Emcure Pharmaceuticals" "the Gennova Biopharmaceuticals subsidiary"
+python agent3_brief.py "Emcure Pharmaceuticals" --detailed
 ```
 
+Default mode writes with `gemini-3.1-flash-lite` and takes about 20 seconds.
+`--detailed` (or the tick box on the web page) uses `gemini-3.5-flash`, about a minute.
+
 Output lands in `output/<company>.md` with the sources in `output/<company>.sources.json`.
-A run takes two or three minutes and uses two Gemini calls.
+A run uses about 10 searches and one Gemini call.
 
 ## Web page for the team (Vercel)
 
 `public/index.html` is the page and `app.py` is the backend (a small Flask app). The team opens the
 link, types a company and clicks "Write brief". The brief
-shows on screen with Download and Copy buttons. A run takes one to two minutes.
+shows on screen with Download and Copy buttons. A run takes about 20 seconds.
 
 Deploy free on Vercel Hobby:
 
 1. Go to vercel.com, sign in with GitHub, click "Add New", then "Project".
 2. Import this repository. Leave Framework Preset as "Other" and the build settings empty.
-3. Under Environment Variables add `GEMINI_API_KEY` and `SERP_API_KEY`.
+3. Under Environment Variables add `GEMINI_API_KEY` and `TAVILY_API_KEY`.
 4. Click Deploy. Every `git push` redeploys automatically.
 
 The page has no password, so anyone with the link can use up the free API quota.
 Share the link only inside the team. Vercel cuts a request off
-at 5 minutes. Searches and page reads run in parallel to stay well inside that.
+at 5 minutes. Runs finish far inside that.
 
 ## Run Agent 3 from GitHub Actions
 
@@ -66,16 +72,14 @@ Briefs are never committed. The `output/` folder is git-ignored.
 
 ## How Agent 3 works
 
-1. Gemini turns the company name into five short search queries. Three fixed ones are
-   added: annual report, leadership programmes, and court or complaint matters.
-2. Google News runs for the company, the focus unit, and "complaint case", so recent
-   legal matters surface. Then Google web search runs for every query, with
-   DuckDuckGo as fallback. Results are picked round-robin so each query gets a share.
-3. Up to 30 pages are fetched and stripped to text. PDFs are read with pypdf.
+1. Fixed search templates cover M&A, leadership change, HR head, expansion,
+   restructuring, the annual report, leadership programmes and complaint matters.
+2. A news search runs for the company, the focus unit, and "complaint case", so recent
+   legal matters surface. Web search runs for every template. All searches run in
+   parallel, and results are picked round-robin so each query gets a share.
+3. Up to 30 pages are fetched in parallel and stripped to text. PDFs are read with pypdf.
    LinkedIn profiles, Twitter and salary sites are skipped.
 4. Gemini writes the brief using only those sources, with a citation on every fact.
-
-Each brief uses about 12 SearchApi searches and 2 Gemini calls.
 
 Rules baked into the prompt come from the Emcure and Zespri briefs and live in
 `entendido_context.md`: facts versus derived implications, sell to a single leadership
@@ -91,6 +95,6 @@ and exclude existing clients. Edit that file to change how the agent thinks.
   usually picked up, but programme names that only appear in the annual report
   (for example Emcure's SAKSHAM and EmCoach) will be missed.
 - The newest Gemini flash models sometimes return "high demand" errors. The script
-  falls back between `gemini-3.5-flash` and `gemini-3.1-flash-lite` and retries.
+  falls back between `gemini-3.1-flash-lite` and `gemini-3.5-flash` and retries.
 - Names of HR heads often come from LinkedIn or aggregator sites. The brief marks
   these as needing verification, as the human-written samples do.

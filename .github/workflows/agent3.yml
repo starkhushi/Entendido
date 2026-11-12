@@ -26,6 +26,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           PYTHONUTF8: "1"
           COMPANY: ${{ inputs.company }}
           FOCUS: ${{ inputs.focus }}
