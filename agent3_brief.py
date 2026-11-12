@@ -278,7 +278,7 @@ Write in Entendido's voice: plain, specific, behavioural, no sales fluff.
 
 Produce Markdown with EXACTLY these sections, matching our Emcure/Gennova sample:
 # Prospect Brief: {company}
-*Sector, one line. Created {TODAY}.*
+*<the company's sector in a few words>. Created {TODAY}.*
 ## About This Research
 (two lines: we look for a big job to do + a leadership group that changed shape; this does NOT establish a problem)
 ## About The Prospect

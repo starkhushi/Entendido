@@ -4,5 +4,25 @@
       "maxDuration": 300,
       "includeFiles": "{agent3_brief.py,entendido_context.md,public/index.html}"
     }
-  }
+  },
+  "headers": [
+    {
+      "source": "/",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    }
+  ]
 }

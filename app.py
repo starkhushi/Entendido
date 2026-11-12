@@ -11,7 +11,9 @@ app = Flask(__name__, static_folder=None)
 
 @app.get("/")
 def page():
-    return send_from_directory(os.path.join(HERE, "public"), "index.html")
+    resp = send_from_directory(os.path.join(HERE, "public"), "index.html")
+    resp.headers["Cache-Control"] = "no-cache"  # always pick up a new deploy
+    return resp
 
 
 @app.post("/api/brief")
