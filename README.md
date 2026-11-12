@@ -46,7 +46,9 @@ A run uses about 10 searches and one Gemini call.
 
 ## Web page for the team (Vercel)
 
-`public/index.html` is the page and `app.py` is the backend (a small Flask app). The team opens the
+`public/index.html` is the page and `app.py` is the backend (a small Flask app).
+The backend streams newline-delimited JSON events (stage, hits, read, token, done),
+so the page shows live progress and the brief types itself out while Gemini writes it. The team opens the
 link, types a company and clicks "Write brief". The brief
 shows on screen with Download and Copy buttons, under an "At a glance" panel:
 key numbers, fit-signal scores, news coverage by month, an event timeline, and a

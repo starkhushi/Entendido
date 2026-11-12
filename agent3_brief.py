@@ -18,7 +18,7 @@ from google.genai import types
 load_dotenv()
 logging.getLogger("pypdf").setLevel(logging.ERROR)  # font warnings from annual-report PDFs
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
-FAST = ["gemini-3.1-flash-lite", "gemini-3.5-flash"]      # about 6 seconds to write
+FAST = ["gemini-3.1-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash"]  # ~6s; retry lite once
 DETAILED = ["gemini-3.5-flash", "gemini-3.1-flash-lite"]  # about 40 seconds, richer
 MODELS = FAST
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -42,6 +42,33 @@ def ask(prompt, json_mode=False, retries=4, models=None):
                 last = e
                 if str(e)[:3] not in ("429", "503"):
                     raise
+        time.sleep(8 * (attempt + 1))
+    raise last
+
+
+def ask_stream(prompt, models=None, retries=3):
+    """Yield Gemini output in pieces as it is written. Falls back between models
+    on 429/503, but only before the first piece arrives."""
+    last, start = None, time.time()
+    for attempt in range(retries):
+        if attempt and time.time() - start > 90:
+            break
+        for m in (models or MODELS):
+            got = False
+            try:
+                # 3.5 Flash "thinks" for over a minute by default; low keeps it near 10s.
+                cfg = (types.GenerateContentConfig(thinking_config=types.ThinkingConfig(thinking_level="low"))
+                       if "3.5" in m else None)
+                for chunk in client.models.generate_content_stream(model=m, contents=prompt, config=cfg):
+                    if chunk.text:
+                        got = True
+                        yield chunk.text
+                return
+            except Exception as e:
+                last = e
+                if got or str(e)[:3] not in ("429", "503"):
+                    raise
+                time.sleep(1)
         time.sleep(8 * (attempt + 1))
     raise last
 
@@ -309,7 +336,7 @@ def with_glance(brief, viz):
     return parts[0].rstrip() + "\n\n" + g + ("\n\n## " + parts[1] if len(parts) > 1 else "")
 
 
-def write_brief(company, focus, sources, detailed=False):
+def write_brief(company, focus, sources, detailed=False, prompt_only=False):
     src_block = "\n\n".join(
         f"[{i}] {s['title']} ({s['date'] or 'n.d.'}) {s['url']}\n{s['snippet']}\n{s['text']}"
         for i, s in enumerate(sources, 1))
@@ -373,34 +400,62 @@ all quarters) and the same unit, values exactly as the source states them; or nu
 
 SOURCES:
 {src_block}"""
+    if prompt_only:
+        return prompt
     return ask(prompt, models=DETAILED if detailed else FAST)
 
 
-def run(company, focus="", log=print, save=True, detailed=False):
-    """Research a company. Returns (brief_markdown, sources, chart_data)."""
+def slim(sources):
+    return [{"title": x["title"], "url": x["url"], "date": x["date"]} for x in sources]
+
+
+def run_stream(company, focus="", detailed=False):
+    """Research a company and yield progress events as dicts:
+    stage, hits, read, token (brief text as it is written), then done."""
     queries, news_queries = plan_queries(company, focus)
-    log(f"Searching Google with {len(queries) + len(news_queries)} queries")
+    yield {"t": "stage", "stage": "search", "msg": f"Searching with {len(queries) + len(news_queries)} queries"}
     hits = search(queries, news_queries)
-    log(f"Reading {len(hits)} pages")
+    yield {"t": "hits", "items": slim(hits)}
+    yield {"t": "stage", "stage": "read", "msg": f"Reading {len(hits)} pages"}
     fetched = parallel(lambda h: fetch_text(h["url"]), hits, workers=16, seconds=20,
                        default=lambda h: (h["url"], ""))
     sources, seen_final = [], set()
     for h, (final_url, text) in zip(hits, fetched):
         h["url"], h["text"] = final_url, text
-        if h["url"] in seen_final or any(s in h["url"] for s in SKIP):
+        if h["url"] in seen_final or any(x in h["url"] for x in SKIP):
             continue
         seen_final.add(h["url"])
         if h["text"] or h["snippet"]:
             sources.append(h)
-    log(f"Writing brief from {len(sources)} sources")
-    brief, viz = split_viz(write_brief(company, focus, sources, detailed))
+    yield {"t": "read", "count": len(sources)}
+    yield {"t": "stage", "stage": "write", "msg": f"Writing the brief from {len(sources)} sources"}
+    prompt = write_brief(company, focus, sources, detailed, prompt_only=True)
+    parts = []
+    for piece in ask_stream(prompt, models=DETAILED if detailed else FAST):
+        parts.append(piece)
+        yield {"t": "token", "text": piece}
+    yield {"t": "stage", "stage": "charts", "msg": "Building charts"}
+    brief, viz = split_viz("".join(parts))
     viz["coverage"] = coverage(sources)
+    yield {"t": "done", "company": company, "brief": brief, "export": with_glance(brief, viz),
+           "viz": viz, "sources": slim(sources), "_full_sources": sources}
+
+
+def run(company, focus="", log=print, save=True, detailed=False):
+    """Research a company. Returns (brief_markdown, sources, chart_data)."""
+    done = None
+    for ev in run_stream(company, focus, detailed):
+        if ev["t"] == "stage":
+            log(ev["msg"])
+        elif ev["t"] == "done":
+            done = ev
+    brief, viz, sources = done["brief"], done["viz"], done["_full_sources"]
     if save:  # the Vercel filesystem is read-only, so the web version skips this
         slug = re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")
         os.makedirs(os.path.join(HERE, "output"), exist_ok=True)
         path = os.path.join(HERE, "output", f"{slug}.md")
         with open(path, "w", encoding="utf-8") as f:
-            f.write(with_glance(brief, viz))
+            f.write(done["export"])
         with open(os.path.join(HERE, "output", f"{slug}.sources.json"), "w", encoding="utf-8") as f:
             json.dump(sources, f, indent=1, ensure_ascii=False)
         with open(os.path.join(HERE, "output", f"{slug}.viz.json"), "w", encoding="utf-8") as f:

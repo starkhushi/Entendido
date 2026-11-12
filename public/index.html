@@ -3,104 +3,296 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Prospect Brief Writer</title>
+<title>Prospect Briefs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#f7f6f2; --card:#ffffff; --ink:#1d1d1b; --muted:#6b6a64; --line:#e3e1da; --accent:#1f5f5b; --accent-ink:#ffffff; --err:#a3312a; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#161615; --card:#1f1f1d; --ink:#ecebe6; --muted:#a09f98; --line:#33322f; --accent:#5fb3ab; --accent-ink:#0e1a19; --err:#ef8a80; } }
+  :root {
+    --bg:#f6f5f1; --surface:#ffffff; --surface-2:#f2f0ea; --ink:#1b1b19; --ink-2:#4f4e49; --muted:#7d7b74;
+    --line:#e5e2d9; --line-2:#d6d2c6; --accent:#1f5f5b; --accent-hover:#174a47; --accent-ink:#ffffff; --accent-soft:#e2eeec;
+    --warn-bg:#fcf4e4; --warn-line:#e3b866; --warn-ink:#7a5410; --err:#a3312a; --err-bg:#fbeceb;
+    --high:#1f7a4d; --high-bg:#e3f3ea; --med:#8a6100; --med-bg:#faf0d9; --low:#a3312a; --low-bg:#fbeceb;
+    --series-1:#2a78d6; --t-deal:#2a78d6; --t-leadership:#eb6834; --t-growth:#1baf7a; --t-legal:#eda100;
+    --track:#ebe8e0; --tip-bg:#1b1b19; --tip-ink:#ffffff;
+    --shadow:0 1px 2px rgba(27,27,25,.04), 0 4px 16px rgba(27,27,25,.05);
+    --serif:"Fraunces", Georgia, serif; --sans:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#141413; --surface:#1c1c1a; --surface-2:#232321; --ink:#edece7; --ink-2:#c4c2ba; --muted:#94928a;
+      --line:#2e2d2a; --line-2:#3b3a36; --accent:#5fb3ab; --accent-hover:#7cc6bf; --accent-ink:#0d1a19; --accent-soft:#1d302e;
+      --warn-bg:#2b2416; --warn-line:#8a6a2a; --warn-ink:#e9c98a; --err:#ef8a80; --err-bg:#2e1b19;
+      --high:#6fd19c; --high-bg:#173024; --med:#e5bf63; --med-bg:#2e2715; --low:#ef8a80; --low-bg:#2e1b19;
+      --series-1:#3987e5; --t-deal:#3987e5; --t-leadership:#d95926; --t-growth:#199e70; --t-legal:#c98500;
+      --track:#2c2b28; --tip-bg:#edece7; --tip-ink:#141413;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+      color-scheme: dark;
+    }
+  }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
-  main { max-width:820px; margin:0 auto; padding:32px 16px 64px; }
-  h1 { font-size:1.6rem; margin:0 0 4px; }
-  .lede { color:var(--muted); margin:0 0 24px; }
-  form { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; display:grid; gap:14px; }
-  .check { display:flex; align-items:center; gap:8px; font-weight:500; }
-  .check input { width:auto; }
-  label { font-weight:600; font-size:.9rem; display:grid; gap:6px; }
-  input { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); width:100%; }
-  button { font:inherit; font-weight:600; padding:11px 18px; border:0; border-radius:8px; background:var(--accent); color:var(--accent-ink); cursor:pointer; justify-self:start; }
-  button[disabled] { opacity:.6; cursor:wait; }
-  .ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); }
-  #status { margin:20px 0 0; color:var(--muted); min-height:1.5em; }
-  #status.err { color:var(--err); }
-  #result { display:none; margin-top:20px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 24px 24px; }
-  @media (max-width:480px) { #result { padding:8px 14px 18px; } .panel { padding:12px; } }
-  #result table { border-collapse:collapse; width:100%; font-size:.92rem; display:block; overflow-x:auto; }
-  #result th, #result td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
-  #result a { color:var(--accent); word-break:break-word; }
-  .bar { display:flex; gap:10px; flex-wrap:wrap; margin:16px 0 0; }
+  html { -webkit-text-size-adjust:100%; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15.5px/1.6 var(--sans); }
+  button, input { font:inherit; color:inherit; }
+  a { color:var(--accent); }
+  .wrap { max-width:1120px; margin:0 auto; padding:0 20px; }
+  [hidden] { display:none !important; }
 
-  /* At a glance panel */
-  :root { --series-1:#2a78d6; --t-deal:#2a78d6; --t-leadership:#eb6834; --t-growth:#1baf7a; --t-legal:#eda100; --track:#ebe9e3; --tip-bg:#1d1d1b; --tip-ink:#ffffff; }
-  @media (prefers-color-scheme: dark) { :root { --series-1:#3987e5; --t-deal:#3987e5; --t-leadership:#d95926; --t-growth:#199e70; --t-legal:#c98500; --track:#2c2b28; --tip-bg:#ecebe6; --tip-ink:#161615; } }
-  #glance { margin:16px 0 8px; display:grid; gap:16px; }
-  #glance h2 { font-size:1.05rem; margin:0 0 2px; }
-  .sub { color:var(--muted); font-size:.85rem; margin:0 0 10px; }
-  .panel { border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:var(--bg); min-width:0; }
-  .grid2 { display:grid; gap:16px; grid-template-columns:repeat(auto-fit, minmax(min(300px, 100%), 1fr)); align-items:start; }
-  .kpis { display:grid; gap:12px; grid-template-columns:repeat(auto-fill, minmax(min(150px, 100%), 1fr)); }
-  .kpi { border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:var(--bg); }
-  .kpi .v { font-size:1.6rem; font-weight:700; line-height:1.2; font-variant-numeric:tabular-nums; }
-  .kpi .l { font-weight:600; font-size:.9rem; }
-  .kpi .n { color:var(--muted); font-size:.8rem; }
-  .meter { display:grid; grid-template-columns:minmax(0,1fr) 110px 34px; gap:4px 10px; align-items:center; margin:0 0 10px; }
-  .meter .name { font-size:.9rem; font-weight:600; }
-  .meter .why { grid-column:1 / -1; color:var(--muted); font-size:.8rem; margin-top:-2px; }
+  /* Top bar */
+  .top { border-bottom:1px solid var(--line); background:color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter:blur(8px); position:sticky; top:0; z-index:20; }
+  .top .wrap { display:flex; align-items:center; justify-content:space-between; height:58px; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:600; letter-spacing:-.01em; cursor:pointer; background:none; border:0; padding:0; }
+  .mark { width:28px; height:28px; border-radius:8px; background:var(--accent); color:var(--accent-ink); display:grid; place-items:center; font:600 15px var(--serif); }
+  .brand small { color:var(--muted); font-weight:500; margin-left:2px; }
+  .pill { font-size:12px; font-weight:600; color:var(--accent); background:var(--accent-soft); padding:4px 10px; border-radius:999px; }
+
+  /* Hero + search */
+  .hero { padding:64px 0 28px; max-width:760px; margin:0 auto; text-align:center; }
+  .hero h1 { font:600 clamp(30px, 5vw, 46px)/1.1 var(--serif); letter-spacing:-.02em; margin:0 0 14px; }
+  .hero p { color:var(--ink-2); font-size:17px; margin:0 auto 30px; max-width:600px; }
+  .compact .hero { padding:28px 0 12px; }
+  .compact .hero h1, .compact .hero p, .compact .chips { display:none; }
+  .search { background:var(--surface); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); padding:8px; text-align:left; }
+  .search:focus-within { border-color:var(--line-2); box-shadow:var(--shadow), 0 0 0 4px var(--accent-soft); }
+  .row1 { display:flex; align-items:center; gap:8px; }
+  .row1 svg { flex:none; margin-left:10px; color:var(--muted); }
+  .row1 input { flex:1; min-width:0; border:0; outline:0; background:transparent; font-size:18px; padding:12px 6px; }
+  .go { flex:none; border:0; border-radius:11px; background:var(--accent); color:var(--accent-ink); font-weight:600; padding:12px 18px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:background .15s; }
+  .go:hover { background:var(--accent-hover); }
+  .go[disabled] { opacity:.55; cursor:not-allowed; }
+  .row2 { display:flex; align-items:center; gap:10px; border-top:1px solid var(--line); margin-top:6px; padding:8px 6px 2px 10px; flex-wrap:wrap; }
+  .row2 input { flex:1; min-width:180px; border:0; outline:0; background:transparent; padding:6px 0; font-size:14px; }
+  .toggle { display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink-2); cursor:pointer; user-select:none; white-space:nowrap; }
+  .toggle input { position:absolute; opacity:0; pointer-events:none; }
+  .switch { width:34px; height:20px; border-radius:999px; background:var(--line-2); position:relative; transition:background .15s; }
+  .switch::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:transform .15s; box-shadow:0 1px 2px rgba(0,0,0,.2); }
+  .toggle input:checked + .switch { background:var(--accent); }
+  .toggle input:checked + .switch::after { transform:translateX(14px); }
+  .toggle input:focus-visible + .switch { outline:2px solid var(--accent); outline-offset:2px; }
+  .chips { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:18px; }
+  .chips span { color:var(--muted); font-size:13px; align-self:center; }
+  .chip-btn { border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:6px 12px; font-size:13px; cursor:pointer; color:var(--ink-2); }
+  .chip-btn:hover { border-color:var(--line-2); color:var(--ink); }
+
+  /* Progress */
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); }
+  #progress { max-width:760px; margin:8px auto 0; padding:20px 22px; }
+  .p-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
+  .p-head b { font-weight:600; }
+  .p-head .time { color:var(--muted); font-variant-numeric:tabular-nums; font-size:14px; }
+  .steps { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+  .steps li { display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--muted); min-width:0; }
+  .steps li span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ic { flex:none; width:22px; height:22px; border-radius:50%; border:1.5px solid var(--line-2); display:grid; place-items:center; font-size:11px; font-weight:600; }
+  .steps li.active { color:var(--ink); font-weight:600; }
+  .steps li.active .ic { border-color:var(--accent); border-top-color:transparent; animation:spin .8s linear infinite; }
+  .steps li.done { color:var(--ink-2); }
+  .steps li.done .ic { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .bar-track { height:4px; background:var(--track); border-radius:4px; margin:16px 0 0; overflow:hidden; }
+  .bar-fill { height:100%; width:0; background:var(--accent); border-radius:4px; transition:width .6s ease; }
+  .p-msg { color:var(--ink-2); font-size:13.5px; margin:10px 0 0; }
+  .ticker { display:flex; flex-wrap:wrap; gap:6px; margin-top:14px; max-height:92px; overflow:hidden; }
+  .ticker span { font-size:12px; color:var(--ink-2); background:var(--surface-2); border-radius:6px; padding:3px 8px; animation:pop .3s ease both; white-space:nowrap; }
+  @keyframes pop { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+  .error-box { margin-top:14px; background:var(--err-bg); color:var(--err); border-radius:10px; padding:12px 14px; font-size:14px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+  .error-box button { border:1px solid currentColor; background:transparent; color:inherit; border-radius:8px; padding:6px 12px; cursor:pointer; }
+
+  /* Result */
+  #result { margin:28px 0 80px; }
+  .res-head { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; padding-bottom:20px; border-bottom:1px solid var(--line); }
+  .eyebrow { font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 6px; }
+  .res-head h2 { font:600 clamp(26px, 4vw, 36px)/1.15 var(--serif); letter-spacing:-.02em; margin:0; }
+  .sector { color:var(--ink-2); margin:6px 0 0; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .badge { font-size:12.5px; font-weight:600; border-radius:999px; padding:3px 10px; }
+  .badge.High { color:var(--high); background:var(--high-bg); }
+  .badge.Medium { color:var(--med); background:var(--med-bg); }
+  .badge.Low { color:var(--low); background:var(--low-bg); }
+  .badge.writing { color:var(--accent); background:var(--accent-soft); }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .btn { border:1px solid var(--line-2); background:var(--surface); border-radius:10px; padding:8px 13px; font-size:13.5px; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  .btn:hover { border-color:var(--ink-2); }
+  .btn[disabled] { opacity:.5; cursor:not-allowed; }
+
+  /* At a glance */
+  #glance { margin:24px 0 0; display:grid; gap:14px; }
+  .g-title { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .g-title h3 { font:600 20px var(--serif); margin:0; }
+  .g-title p { color:var(--muted); font-size:12.5px; margin:0; }
+  .kpis { display:grid; gap:12px; grid-template-columns:repeat(auto-fill, minmax(min(190px, 100%), 1fr)); }
+  .kpi { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px 18px; }
+  .kpi .v { font:600 28px/1.15 var(--serif); letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
+  .kpi .l { font-weight:600; font-size:13.5px; margin-top:4px; }
+  .kpi .n { color:var(--muted); font-size:12.5px; }
+  .grid2 { display:grid; gap:14px; grid-template-columns:repeat(auto-fit, minmax(min(340px, 100%), 1fr)); align-items:start; }
+  .panel { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:18px 20px; min-width:0; }
+  .panel h4 { font-size:14.5px; font-weight:600; margin:0 0 2px; }
+  .sub { color:var(--muted); font-size:12.5px; margin:0 0 14px; }
+  .overall { display:flex; align-items:baseline; gap:6px; margin:0 0 14px; }
+  .overall b { font:600 34px/1 var(--serif); }
+  .overall span { color:var(--muted); font-size:13px; }
+  .meter { display:grid; grid-template-columns:minmax(0,1fr) 120px 30px; gap:2px 12px; align-items:center; margin:0 0 12px; }
+  .meter .name { font-size:13.5px; font-weight:500; }
+  .meter .why { grid-column:1 / -1; color:var(--muted); font-size:12.5px; }
   .track { height:8px; border-radius:4px; background:var(--track); overflow:hidden; }
-  .fill { height:100%; border-radius:4px; background:var(--series-1); }
-  .meter .fig { font-variant-numeric:tabular-nums; font-size:.9rem; text-align:right; }
-  @media (max-width:480px) { .meter { grid-template-columns:minmax(0,1fr) 34px; } .meter .track { grid-column:1 / -1; order:3; } }
-  .overall { font-size:1.9rem; font-weight:700; margin-right:6px; color:var(--ink); }
-  .tl { list-style:none; margin:0; padding:0; }
-  .tl li { display:grid; grid-template-columns:72px 14px 1fr; gap:10px; align-items:start; padding:6px 0; border-top:1px solid var(--line); }
-  .tl li:first-child { border-top:0; }
-  .tl .d { color:var(--muted); font-size:.85rem; font-variant-numeric:tabular-nums; }
-  .dot { width:10px; height:10px; border-radius:50%; margin-top:6px; box-shadow:0 0 0 2px var(--bg); }
-  .chip { display:inline-block; font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-left:6px; }
-  .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:.8rem; color:var(--muted); margin:0 0 8px; }
+  .fill { height:100%; border-radius:4px; background:var(--series-1); width:0; transition:width .8s cubic-bezier(.2,.8,.2,1); }
+  .meter .fig { font-variant-numeric:tabular-nums; font-size:13px; text-align:right; color:var(--ink-2); }
+  @media (max-width:520px) { .meter { grid-template-columns:minmax(0,1fr) 30px; } .meter .track { grid-column:1 / -1; order:3; margin:2px 0; } }
+  .tl { list-style:none; margin:0; padding:0; position:relative; }
+  .tl::before { content:""; position:absolute; left:83px; top:10px; bottom:10px; width:2px; background:var(--line); }
+  .tl li { display:grid; grid-template-columns:70px 12px 1fr; gap:0 12px; align-items:start; padding:7px 0; position:relative; }
+  .tl .d { color:var(--muted); font-size:12.5px; font-variant-numeric:tabular-nums; padding-top:1px; }
+  .dot { width:12px; height:12px; border-radius:50%; margin-top:5px; box-shadow:0 0 0 3px var(--surface); position:relative; }
+  .tl .e { font-size:13.5px; }
+  .chip { display:inline-block; font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-left:6px; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin:0 0 10px; }
   .legend span::before { content:""; display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; background:var(--c); }
   .chart svg { display:block; width:100%; overflow:visible; }
-  .chart text { fill:var(--muted); font-size:11px; font-family:inherit; }
-  .chart .base { stroke:var(--line); }
-  .chart .bar { fill:var(--series-1); }
+  .chart text { fill:var(--muted); font-size:11px; font-family:var(--sans); }
+  .chart .vlab { fill:var(--ink-2); font-weight:600; }
+  .chart .base { stroke:var(--line-2); }
+  .chart .bar { fill:var(--series-1); transition:opacity .15s; }
   .chart .hit { fill:transparent; }
-  .chart g:hover .bar { opacity:.8; }
-  #tip { position:fixed; pointer-events:none; background:var(--tip-bg); color:var(--tip-ink); font-size:.8rem; padding:6px 9px; border-radius:6px; display:none; z-index:10; max-width:240px; }
-  .empty { color:var(--muted); font-size:.85rem; }
-  .ver { color:var(--muted); font-size:.75rem; margin-top:32px; }
+  .chart g:hover .bar { opacity:.78; }
+  #tip { position:fixed; pointer-events:none; background:var(--tip-bg); color:var(--tip-ink); font-size:12.5px; padding:6px 9px; border-radius:7px; display:none; z-index:50; max-width:260px; }
+  .empty { color:var(--muted); font-size:13px; margin:0; }
+  .cite-n { color:var(--muted); font-size:11.5px; }
+
+  /* Brief */
+  .layout { display:grid; grid-template-columns:200px minmax(0, 1fr); gap:40px; margin-top:32px; }
+  #toc { position:sticky; top:82px; align-self:start; font-size:13px; }
+  #toc p { font-size:11.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; }
+  #toc a { display:block; color:var(--ink-2); text-decoration:none; padding:5px 10px; border-left:2px solid var(--line); line-height:1.35; }
+  #toc a:hover { color:var(--ink); border-left-color:var(--line-2); }
+  #toc a.on { color:var(--accent); border-left-color:var(--accent); font-weight:600; }
+  .layout.solo { grid-template-columns:minmax(0, 1fr); }
+  @media (max-width:860px) { .layout { grid-template-columns:1fr; } #toc { display:none; } }
+  #brief { background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:8px 36px 32px; min-width:0; }
+  @media (max-width:560px) { #brief { padding:4px 18px 22px; } }
+  #brief h1 { display:none; }
+  #brief h2 { font:600 21px/1.3 var(--serif); letter-spacing:-.01em; margin:30px 0 10px; padding-top:22px; border-top:1px solid var(--line); scroll-margin-top:80px; }
+  #brief h2:first-of-type { border-top:0; padding-top:12px; }
+  #brief p, #brief li { color:var(--ink-2); }
+  #brief strong { color:var(--ink); }
+  #brief ul, #brief ol { padding-left:22px; }
+  #brief li { margin:4px 0; }
+  #brief li::marker { color:var(--muted); }
+  #brief table { border-collapse:collapse; width:100%; font-size:14px; margin:8px 0; display:block; overflow-x:auto; }
+  #brief th { text-align:left; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); border-bottom:1px solid var(--line-2); padding:8px 10px; }
+  #brief td { border-bottom:1px solid var(--line); padding:10px; vertical-align:top; color:var(--ink-2); }
+  #brief tr:last-child td { border-bottom:0; }
+  #brief a { word-break:break-word; }
+  #brief sup.c a { text-decoration:none; font-size:10.5px; font-weight:600; color:var(--accent); background:var(--accent-soft); border-radius:4px; padding:0 4px; margin-left:1px; }
+  .callout { border-radius:12px; padding:2px 18px 6px; margin:8px 0; }
+  .callout.warn { background:var(--warn-bg); border:1px solid var(--warn-line); }
+  .callout.warn::before { content:"Internal only. Do not raise unless they do."; display:block; font-size:12px; font-weight:600; color:var(--warn-ink); margin:12px 0 -4px; }
+  .callout.pitch { background:var(--accent-soft); border-left:3px solid var(--accent); border-radius:0 12px 12px 0; }
+  .callout.pitch p { font:500 16.5px/1.6 var(--serif); color:var(--ink); }
+  .caret { display:inline-block; width:8px; height:1.05em; background:var(--accent); vertical-align:text-bottom; margin-left:2px; animation:blink 1s step-end infinite; border-radius:1px; }
+  @keyframes blink { 50% { opacity:0; } }
+  .src-list { margin-top:20px; }
+  .src-list summary { cursor:pointer; font-weight:600; font-size:14px; padding:14px 18px; list-style:none; display:flex; justify-content:space-between; }
+  .src-list summary::-webkit-details-marker { display:none; }
+  .src-list summary::after { content:"Show"; color:var(--accent); font-weight:500; }
+  .src-list[open] summary::after { content:"Hide"; }
+  .src-list ol { margin:0; padding:0 18px 16px 44px; font-size:13.5px; }
+  .src-list li { margin:5px 0; color:var(--muted); }
+  .src-list li a { color:var(--ink-2); text-decoration:none; }
+  .src-list li a:hover { color:var(--accent); text-decoration:underline; }
+  .dom { color:var(--muted); font-size:12px; margin-left:6px; }
+  footer { color:var(--muted); font-size:12px; text-align:center; padding:24px 0 40px; }
+
+  @media (max-width:640px) {
+    .hero { padding:36px 0 18px; }
+    .steps { grid-template-columns:1fr 1fr; row-gap:10px; }
+    .go .lbl { display:none; }
+    .res-head { align-items:flex-start; }
+  }
   @media print {
-    body { background:#fff; }
-    h1, .lede, form, #status, .bar, .ver { display:none !important; }
-    main { padding:0; max-width:none; }
-    #result { border:0; padding:0; }
-    .panel, .kpi, #result table { break-inside:avoid; }
+    .top, .hero, #progress, .actions, #toc, footer, .src-list summary::after { display:none !important; }
+    body { background:#fff; font-size:12.5px; }
+    .layout { display:block; margin-top:16px; }
+    #brief, .panel, .kpi { border:1px solid #ddd; box-shadow:none; }
+    .src-list { display:block; }
+    .panel, .kpi, #brief table, .callout { break-inside:avoid; }
     * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
 </style>
 </head>
 <body>
-<main>
-  <h1>Prospect brief writer</h1>
-  <p class="lede">Type a company. The agent searches the web, reads about 30 pages and writes a one-page brief in the Emcure/Gennova format. It takes about 30 seconds.</p>
-  <form id="f">
-    <label>Company <input id="company" required placeholder="e.g. Emcure Pharmaceuticals"></label>
-    <label>Focus (optional) <input id="focus" placeholder="e.g. the Gennova subsidiary"></label>
-    <label class="check"><input id="detailed" type="checkbox"> Detailed brief (slower, about a minute)</label>
-    <button id="go">Write brief</button>
-  </form>
-  <p id="status"></p>
-  <div id="result">
-    <div class="bar"><button class="ghost" id="dl" type="button">Download brief (.md)</button><button class="ghost" id="cp" type="button">Copy text</button><button class="ghost" id="pdf" type="button">Save as PDF (with charts)</button></div>
-    <section id="glance" aria-label="At a glance"></section>
-    <article id="brief"></article>
+<header class="top">
+  <div class="wrap">
+    <button class="brand" id="home" type="button" aria-label="New brief"><span class="mark">e</span>Entendido <small>Prospect Briefs</small></button>
+    <span class="pill">Agent 3</span>
   </div>
-  <p class="ver">Version: charts-3</p>
-</main>
+</header>
+
+<div class="wrap" id="app">
+  <section class="hero">
+    <h1>Know the room before you walk in.</h1>
+    <p>Type a company. The agent reads around 30 public sources and writes a one-page prospect brief with a timeline, fit signals and who to talk to.</p>
+    <form class="search" id="f" autocomplete="off">
+      <div class="row1">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="company" required maxlength="120" placeholder="Company name, e.g. Emcure Pharmaceuticals" aria-label="Company name">
+        <button class="go" id="go" type="submit"><span class="lbl">Write brief</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
+      <div class="row2">
+        <input id="focus" maxlength="200" placeholder="Optional focus: a unit, subsidiary or deal" aria-label="Optional focus">
+        <label class="toggle" title="Uses the larger Gemini model. Richer, about a minute.">
+          <input id="detailed" type="checkbox"><span class="switch"></span>Detailed
+        </label>
+      </div>
+    </form>
+    <div class="chips" id="chips"><span>Try</span></div>
+  </section>
+
+  <section class="card" id="progress" hidden aria-live="polite">
+    <div class="p-head"><b id="p-title">Researching</b><span class="time" id="p-time">0s</span></div>
+    <ol class="steps" id="steps">
+      <li data-s="search"><span class="ic">1</span><span>Search the web</span></li>
+      <li data-s="read"><span class="ic">2</span><span>Read sources</span></li>
+      <li data-s="write"><span class="ic">3</span><span>Write brief</span></li>
+      <li data-s="charts"><span class="ic">4</span><span>Build charts</span></li>
+    </ol>
+    <div class="bar-track"><div class="bar-fill" id="p-bar"></div></div>
+    <p class="p-msg" id="p-msg">Starting</p>
+    <div class="ticker" id="ticker"></div>
+    <div class="error-box" id="err" hidden><span id="err-msg"></span><button type="button" id="retry">Try again</button></div>
+  </section>
+
+  <section id="result" hidden>
+    <div class="res-head">
+      <div>
+        <p class="eyebrow">Prospect brief</p>
+        <h2 id="r-name"></h2>
+        <div class="sector"><span id="r-sector"></span><span class="badge" id="r-badge" hidden></span></div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="cp" type="button" disabled>Copy</button>
+        <button class="btn" id="dl" type="button" disabled>Download .md</button>
+        <button class="btn" id="pdf" type="button" disabled>Save as PDF</button>
+        <button class="btn" id="again" type="button">New brief</button>
+      </div>
+    </div>
+    <section id="glance" aria-label="At a glance" hidden></section>
+    <div class="layout solo" id="layout">
+      <nav id="toc" aria-label="Sections" hidden></nav>
+      <article id="brief"></article>
+    </div>
+    <details class="card src-list" id="srcs" hidden><summary id="srcs-sum">Sources</summary><ol id="srcs-ol"></ol></details>
+  </section>
+</div>
+<footer>Built on free tiers: Tavily search and Gemini. Facts carry source numbers. Check names before outreach. Version 4</footer>
 <div id="tip" role="tooltip"></div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-// ---------- At a glance: charts built from the brief's chart data ----------
 const el = (tag, attrs = {}, text) => {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
@@ -112,6 +304,131 @@ const svgEl = (tag, attrs = {}) => {
   for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
   return n;
 };
+
+// ---------- Examples ----------
+["Emcure Pharmaceuticals", "Devyani International", "Mankind Pharma", "Tata Consumer Products"].forEach(name => {
+  const b = el("button", { class: "chip-btn", type: "button" }, name);
+  b.onclick = () => { $("company").value = name; $("f").requestSubmit(); };
+  $("chips").appendChild(b);
+});
+
+// ---------- Progress ----------
+const ORDER = ["search", "read", "write", "charts"];
+const PCT = { search: 8, read: 30, write: 55, charts: 95 };
+let timer, t0, ctrl, last = null, lastReq = null;
+function setStage(stage, msg) {
+  const i = ORDER.indexOf(stage);
+  document.querySelectorAll("#steps li").forEach((li, j) => {
+    li.className = j < i ? "done" : j === i ? "active" : "";
+    li.querySelector(".ic").textContent = j < i ? "✓" : j === i ? "" : j + 1;
+  });
+  $("p-bar").style.width = (PCT[stage] || 0) + "%";
+  if (msg) $("p-msg").textContent = msg;
+}
+function stopTimer() { clearInterval(timer); }
+function showError(msg) {
+  stopTimer();
+  $("p-title").textContent = "Something went wrong";
+  $("err-msg").textContent = msg; $("err").hidden = false;
+  document.querySelectorAll("#steps li.active").forEach(li => { li.className = ""; });
+  $("go").disabled = false;
+}
+const domain = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return ""; } };
+
+// ---------- Brief rendering ----------
+function splitHead(md) {
+  // Pull the title and subtitle lines off the top; the page header shows them.
+  const lines = md.split("\n");
+  let sector = "";
+  while (lines.length && !lines[0].trim()) lines.shift();
+  if (lines[0] && lines[0].startsWith("# ")) lines.shift();
+  while (lines.length && !lines[0].trim()) lines.shift();
+  if (lines[0] && /^\*[^*].*\*$/.test(lines[0].trim())) {
+    sector = lines.shift().trim().replace(/^\*|\*$/g, "").replace(/\s*Created \d{4}-\d{2}-\d{2}\.?/i, "").replace(/\.\s*$/, "");
+  }
+  return { sector, body: lines.join("\n") };
+}
+const visibleText = md => { const i = md.indexOf("```json"); return i >= 0 ? md.slice(0, i) : md; };
+function renderMd(md, streaming) {
+  const { sector, body } = splitHead(visibleText(md));
+  if (sector) $("r-sector").textContent = sector;
+  $("brief").innerHTML = DOMPurify.sanitize(marked.parse(body));
+  if (streaming) {
+    const tgt = $("brief").lastElementChild || $("brief");
+    const leaf = tgt.matches("ul,ol,table") ? (tgt.querySelector("li:last-child, tr:last-child td:last-child") || tgt) : tgt;
+    leaf.appendChild(el("span", { class: "caret", "aria-hidden": "true" }));
+  }
+}
+let pending = null, raf = 0;
+function queueRender(md) {
+  pending = md;
+  if (!raf) raf = requestAnimationFrame(() => { raf = 0; renderMd(pending, true); });
+}
+function finishBrief(data) {
+  renderMd(data.brief, false);
+  const art = $("brief");
+  // Group each section so callouts can wrap it.
+  const h2s = [...art.querySelectorAll("h2")];
+  const toc = $("toc"); toc.textContent = ""; toc.appendChild(el("p", {}, "On this page"));
+  h2s.forEach((h, i) => {
+    const id = "s-" + i; h.id = id;
+    const name = h.textContent.trim();
+    if (!/^sources$/i.test(name)) { const a = el("a", { href: "#" + id }, name); toc.appendChild(a); }
+    let kind = /know but not mention/i.test(name) ? "warn" : /potential pitch|opener/i.test(name) ? "pitch" : "";
+    if (kind) {
+      const box = el("div", { class: "callout " + kind });
+      let n = h.nextElementSibling;
+      while (n && n.tagName !== "H2") { const next = n.nextElementSibling; box.appendChild(n); n = next; }
+      h.after(box);
+    }
+  });
+  toc.hidden = h2s.length < 3;
+  $("layout").classList.toggle("solo", toc.hidden);
+  // Citations [3] or [3, 7] become links to the source.
+  const walker = document.createTreeWalker(art, NodeFilter.SHOW_TEXT);
+  const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(node => {
+    if (node.parentElement.closest("a")) return;
+    const re = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
+    if (!re.test(node.nodeValue)) return;
+    const frag = document.createDocumentFragment(); let idx = 0; re.lastIndex = 0; let m;
+    while ((m = re.exec(node.nodeValue))) {
+      frag.append(node.nodeValue.slice(idx, m.index));
+      m[1].split(/\s*,\s*/).forEach(n => {
+        const s = data.sources[+n - 1];
+        const sup = el("sup", { class: "c" });
+        const a = el("a", s ? { href: s.url, target: "_blank", rel: "noopener", title: s.title } : { href: "#srcs" }, n);
+        sup.appendChild(a); frag.append(sup);
+      });
+      idx = m.index + m[0].length;
+    }
+    frag.append(node.nodeValue.slice(idx)); node.replaceWith(frag);
+  });
+  art.querySelectorAll("a[href^='http']").forEach(a => { a.target = "_blank"; a.rel = "noopener"; });
+  // Fit badge from the Fit Score section.
+  const fm = data.brief.match(/##\s*Fit Score\s*\n+\s*\**\s*(High|Medium|Low)/i);
+  const badge = $("r-badge");
+  if (fm) { const v = fm[1][0].toUpperCase() + fm[1].slice(1).toLowerCase(); badge.className = "badge " + v; badge.textContent = v + " fit"; badge.hidden = false; }
+  else badge.hidden = true;
+  // Sources list.
+  const ol = $("srcs-ol"); ol.textContent = "";
+  data.sources.forEach(s => { const li = el("li"); li.appendChild(el("a", { href: s.url, target: "_blank", rel: "noopener" }, s.title || s.url));
+    li.appendChild(el("span", { class: "dom" }, domain(s.url) + (s.date ? " · " + s.date : ""))); ol.appendChild(li); });
+  $("srcs-sum").textContent = `All ${data.sources.length} sources the agent read`;
+  $("srcs").hidden = !data.sources.length;
+  watchToc();
+}
+let obs;
+function watchToc() {
+  if (obs) obs.disconnect();
+  const links = [...$("toc").querySelectorAll("a")];
+  obs = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) links.forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id));
+  }), { rootMargin: "-80px 0px -70% 0px" });
+  $("brief").querySelectorAll("h2[id]").forEach(h => obs.observe(h));
+}
+
+// ---------- At a glance ----------
 const cite = c => (Array.isArray(c) && c.length) ? " [" + c.join(", ") + "]" : "";
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const fmtMonth = ym => { const [y, m] = String(ym).split("-"); return m ? `${MONTHS[+m - 1]} ${y}` : y; };
@@ -125,15 +442,14 @@ const showTip = (ev, text) => {
 };
 const hideTip = () => { tip.style.display = "none"; };
 
-// Column chart: one series, thin bars with 2px gaps, rounded data ends, hover tooltip.
-function columns(box, items, height = 150) {
+function columns(box, items, height = 160) {
   box.textContent = "";
-  const W = Math.max(box.clientWidth, 260), H = height, padB = 22, padT = 18;
+  const W = Math.max(box.clientWidth, 260), H = height, padB = 22, padT = 20;
   const max = Math.max(...items.map(d => d.value), 1);
-  const slot = W / items.length, bw = Math.max(Math.min(slot - 2, 44), 3);
+  const slot = W / items.length, bw = Math.max(Math.min(slot - 2, 46), 3);
   const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img", "aria-label": box.dataset.label || "" });
   svg.appendChild(svgEl("line", { x1: 0, x2: W, y1: H - padB, y2: H - padB, class: "base" }));
-  const every = Math.max(1, Math.ceil(items.length / Math.max(1, Math.floor(W / 56))));
+  const every = Math.max(1, Math.ceil(items.length / Math.max(1, Math.floor(W / 58))));
   let maxShown = false;
   items.forEach((d, i) => {
     const h = d.value ? Math.max((d.value / max) * (H - padB - padT), 2) : 0;
@@ -141,13 +457,13 @@ function columns(box, items, height = 150) {
     const g = svgEl("g");
     if (h) g.appendChild(svgEl("path", { class: "bar",
       d: `M${x},${H - padB} V${y + r} Q${x},${y} ${x + r},${y} H${x + bw - r} Q${x + bw},${y} ${x + bw},${y + r} V${H - padB} Z` }));
-    if (i % every === 0 || i === items.length - 1) {
+    if ((items.length - 1 - i) % every === 0) {  // spaced from the right, so the latest is labelled
       const t = svgEl("text", { x: i * slot + slot / 2, y: H - 6, "text-anchor": "middle" });
       t.textContent = d.label; g.appendChild(t);
     }
     if (d.value === max && !maxShown) {
       maxShown = true;
-      const t = svgEl("text", { x: i * slot + slot / 2, y: y - 5, "text-anchor": "middle" });
+      const t = svgEl("text", { x: i * slot + slot / 2, y: y - 6, "text-anchor": "middle", class: "vlab" });
       t.textContent = d.show ?? d.value; g.appendChild(t);
     }
     const hit = svgEl("rect", { class: "hit", x: i * slot, y: 0, width: slot, height: H });
@@ -163,9 +479,12 @@ const TYPES = { deal: "Deal / M&A", leadership: "Leadership", growth: "Growth", 
 let charts = [];
 function renderGlance(viz) {
   const root = $("glance"); root.textContent = ""; charts = [];
-  if (!viz) return;
-  root.appendChild(el("h2", {}, "At a glance"));
-  root.appendChild(el("p", { class: "sub" }, "Built from the same sources as the brief. Numbers in brackets are source numbers. Scores are the agent's judgement, not facts."));
+  if (!viz) { root.hidden = true; return; }
+  root.hidden = false;
+  const head = el("div", { class: "g-title" });
+  head.appendChild(el("h3", {}, "At a glance"));
+  head.appendChild(el("p", {}, "Numbers in brackets are sources. Scores are the agent's judgement, not facts."));
+  root.appendChild(head);
 
   const kn = (viz.key_numbers || []).slice(0, 4);
   if (kn.length) {
@@ -185,17 +504,16 @@ function renderGlance(viz) {
   if (fit.length) {
     const p = el("div", { class: "panel" });
     const avg = fit.reduce((a, f) => a + (+f.score || 0), 0) / fit.length;
-    p.appendChild(el("h2", {}, "Fit signals"));
-    const o = el("div", { class: "sub" });
-    o.appendChild(el("span", { class: "overall" }, avg.toFixed(1)));
-    o.append("out of 5 on average");
+    p.appendChild(el("h4", {}, "Fit signals"));
+    const o = el("div", { class: "overall" });
+    o.appendChild(el("b", {}, avg.toFixed(1))); o.appendChild(el("span", {}, "out of 5 on average"));
     p.appendChild(o);
     fit.forEach(f => {
       const sc = Math.max(0, Math.min(5, +f.score || 0));
       const m = el("div", { class: "meter" });
       m.appendChild(el("div", { class: "name" }, f.criterion));
       const tr = el("div", { class: "track", role: "meter", "aria-valuemin": 0, "aria-valuemax": 5, "aria-valuenow": sc, "aria-label": f.criterion });
-      const fl = el("div", { class: "fill" }); fl.style.width = (sc / 5 * 100) + "%";
+      const fl = el("div", { class: "fill" }); fl.dataset.w = (sc / 5 * 100) + "%";
       tr.appendChild(fl); m.appendChild(tr);
       m.appendChild(el("div", { class: "fig" }, `${sc}/5`));
       if (f.why) m.appendChild(el("div", { class: "why" }, f.why));
@@ -204,25 +522,10 @@ function renderGlance(viz) {
     grid.appendChild(p);
   }
 
-  const cov = viz.coverage || [];
-  const cp = el("div", { class: "panel" });
-  cp.appendChild(el("h2", {}, "News coverage by month"));
-  cp.appendChild(el("p", { class: "sub" }, "Dated sources the agent read. A spike usually marks the trigger event."));
-  if (cov.filter(c => c.count).length >= 2) {
-    const box = el("div", { class: "chart", "data-label": "Dated sources per month" });
-    cp.appendChild(box);
-    const items = cov.map(c => ({ label: shortMonth(c.month), value: c.count,
-      tip: `${fmtMonth(c.month)}: ${c.count} source${c.count === 1 ? "" : "s"}` }));
-    charts.push(() => columns(box, items));
-  } else cp.appendChild(el("p", { class: "empty" }, "Too few dated sources to chart."));
-  grid.appendChild(cp);
-  root.appendChild(grid);
-
-  const grid2 = el("div", { class: "grid2" });
   const tl = (viz.timeline || []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
   if (tl.length) {
     const p = el("div", { class: "panel" });
-    p.appendChild(el("h2", {}, "Event timeline"));
+    p.appendChild(el("h4", {}, "Event timeline"));
     const kind = e => TYPES[e.type] ? e.type : "growth";
     const lg = el("div", { class: "legend" });
     [...new Set(tl.map(kind))].forEach(t => {
@@ -234,63 +537,154 @@ function renderGlance(viz) {
       const t = kind(e), li = el("li");
       li.appendChild(el("span", { class: "d" }, fmtMonth(e.date)));
       const dot = el("span", { class: "dot" }); dot.style.background = `var(--t-${t})`; li.appendChild(dot);
-      const txt = el("span", {}, e.event + cite(e.cite));
+      const txt = el("span", { class: "e" }, e.event);
+      txt.appendChild(el("span", { class: "cite-n" }, cite(e.cite)));
       txt.appendChild(el("span", { class: "chip" }, TYPES[t]));
       li.appendChild(txt); ul.appendChild(li);
     });
-    p.appendChild(ul); grid2.appendChild(p);
+    p.appendChild(ul); grid.appendChild(p);
+  }
+
+  const cov = viz.coverage || [];
+  if (cov.filter(c => c.count).length >= 2) {
+    const p = el("div", { class: "panel" });
+    p.appendChild(el("h4", {}, "News coverage by month"));
+    p.appendChild(el("p", { class: "sub" }, "Dated sources the agent read. A spike usually marks the trigger event."));
+    const box = el("div", { class: "chart", "data-label": "Dated sources per month" });
+    p.appendChild(box);
+    const items = cov.map(c => ({ label: shortMonth(c.month), value: c.count,
+      tip: `${fmtMonth(c.month)}: ${c.count} source${c.count === 1 ? "" : "s"}` }));
+    charts.push(() => columns(box, items));
+    grid.appendChild(p);
   }
   const tr = viz.trend;
   if (tr && (tr.points || []).length >= 2) {
     const p = el("div", { class: "panel" });
-    p.appendChild(el("h2", {}, tr.label || "Trend"));
+    p.appendChild(el("h4", {}, tr.label || "Trend"));
     p.appendChild(el("p", { class: "sub" }, "As stated in the sources" + cite(tr.cite) + ". Check before quoting."));
     const box = el("div", { class: "chart", "data-label": tr.label || "Trend" });
     p.appendChild(box);
     const items = tr.points.map(pt => ({ label: String(pt.x), value: +pt.y, show: fmtNum(pt.y), tip: `${pt.x}: ${fmtNum(pt.y)}` }));
     charts.push(() => columns(box, items, 170));
-    grid2.appendChild(p);
+    grid.appendChild(p);
   }
-  if (grid2.children.length) root.appendChild(grid2);
+  if (grid.children.length) root.appendChild(grid);
+  if (!kn.length && !grid.children.length) root.hidden = true;
+  requestAnimationFrame(() => root.querySelectorAll(".fill").forEach(f => { f.style.width = f.dataset.w; }));
 }
 const drawCharts = () => charts.forEach(f => f());
 let rz;
 window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(drawCharts, 150); });
 
-let last = null;
-$("f").addEventListener("submit", async ev => {
+// ---------- Run ----------
+function reset(toHome) {
+  if (ctrl) ctrl.abort();
+  stopTimer();
+  $("progress").hidden = true; $("result").hidden = true; $("err").hidden = true;
+  $("go").disabled = false;
+  if (toHome) { document.body.classList.remove("compact"); $("company").value = ""; $("focus").value = ""; window.scrollTo({ top: 0 }); $("company").focus(); }
+}
+$("home").onclick = () => reset(true);
+$("again").onclick = () => reset(true);
+$("retry").onclick = () => { if (lastReq) start(lastReq); };
+
+$("f").addEventListener("submit", ev => {
   ev.preventDefault();
-  const go = $("go"), status = $("status");
-  go.disabled = true; status.className = ""; $("result").style.display = "none";
-  const t0 = Date.now();
-  const tick = setInterval(() => {
-    const s = Math.round((Date.now() - t0) / 1000);
-    const step = s < 6 ? "Searching" : s < 16 ? "Reading pages" : "Writing the brief";
-    status.textContent = `${step}... ${s}s`;
-  }, 1000);
-  try {
-    const r = await fetch("/api/brief", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ company: $("company").value, focus: $("focus").value, detailed: $("detailed").checked }) });
-    const data = await r.json().catch(() => ({ error: r.status === 504 ? "The run took longer than 5 minutes. Try again." : `Server error ${r.status}.` }));
-    if (!r.ok) throw new Error(data.error || `Error ${r.status}`);
-    last = data;
-    $("brief").innerHTML = DOMPurify.sanitize(marked.parse(data.brief));
-    $("brief").querySelectorAll("a").forEach(a => { a.target = "_blank"; a.rel = "noopener"; });
-    $("result").style.display = "block";
-    renderGlance(data.viz); drawCharts();
-    status.textContent = `Done in ${Math.round((Date.now() - t0) / 1000)}s from ${data.sources.length} sources.`;
-  } catch (e) {
-    status.className = "err"; status.textContent = e.message;
-  } finally { clearInterval(tick); go.disabled = false; }
+  const company = $("company").value.trim();
+  if (!company) return;
+  start({ company, focus: $("focus").value.trim(), detailed: $("detailed").checked });
 });
+
+async function start(req) {
+  lastReq = req; reset(false);
+  document.body.classList.add("compact");
+  $("go").disabled = true;
+  ["cp", "dl", "pdf"].forEach(id => $(id).disabled = true);
+  $("progress").hidden = false; $("p-title").textContent = `Researching ${req.company}`;
+  $("ticker").textContent = ""; $("err").hidden = true;
+  $("r-name").textContent = req.company; $("r-sector").textContent = req.focus || "";
+  const badge = $("r-badge"); badge.className = "badge writing"; badge.textContent = "Writing"; badge.hidden = false;
+  $("glance").hidden = true; $("toc").hidden = true; $("layout").classList.add("solo"); $("srcs").hidden = true; $("brief").textContent = "";
+  setStage("search", "Searching news and the web");
+  t0 = Date.now();
+  timer = setInterval(() => { $("p-time").textContent = Math.round((Date.now() - t0) / 1000) + "s"; }, 500);
+  ctrl = new AbortController();
+  let md = "", done = false;
+  try {
+    const r = await fetch("/api/brief", { method: "POST", signal: ctrl.signal,
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(req) });
+    const ct = r.headers.get("content-type") || "";
+    if (!r.ok || !ct.includes("ndjson")) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.error || (r.status === 504 ? "The run took longer than 5 minutes. Try again." : `Server error ${r.status}.`));
+    }
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    const handle = ev => {
+      if (ev.t === "stage") {
+        setStage(ev.stage, ev.msg);
+        if (ev.stage === "write") { $("result").hidden = false; }
+      } else if (ev.t === "hits") {
+        const tk = $("ticker");
+        ev.items.slice(0, 30).forEach((h, i) => { const s = el("span", {}, domain(h.url)); s.style.animationDelay = (i * 40) + "ms"; tk.appendChild(s); });
+        $("p-msg").textContent = `Found ${ev.items.length} pages`;
+      } else if (ev.t === "read") {
+        $("p-msg").textContent = `Read ${ev.count} sources with content`;
+      } else if (ev.t === "token") {
+        md += ev.text;
+        const pct = Math.min(90, 55 + md.length / 200);
+        $("p-bar").style.width = pct + "%";
+        queueRender(md);
+      } else if (ev.t === "done") {
+        done = true; last = ev;
+        cancelAnimationFrame(raf); raf = 0;
+        $("result").hidden = false;
+        finishBrief(ev);
+        renderGlance(ev.viz); drawCharts();
+        ["cp", "dl", "pdf"].forEach(id => $(id).disabled = false);
+        stopTimer();
+        const secs = Math.round((Date.now() - t0) / 1000);
+        $("progress").hidden = true;
+        $("p-title").textContent = `Done in ${secs}s`;
+      } else if (ev.t === "error") {
+        throw new Error(ev.msg);
+      }
+    };
+    while (true) {
+      const { value, done: end } = await reader.read();
+      if (value) buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+        if (line) handle(JSON.parse(line));
+      }
+      if (end) break;
+    }
+    if (buf.trim()) handle(JSON.parse(buf));
+    if (!done) throw new Error("The connection closed before the brief finished. Try again.");
+  } catch (e) {
+    if (e.name === "AbortError") return;
+    if (!md) $("result").hidden = true;
+    $("progress").hidden = false;
+    showError(e.message);
+  } finally {
+    $("go").disabled = false;
+  }
+}
+
+// ---------- Actions ----------
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 $("dl").onclick = () => {
-  const slug = last.company.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([last.export || last.brief], { type: "text/markdown" }));
-  a.download = `${slug}.md`; a.click();
+  a.download = `${slug(last.company)}.md`; a.click();
 };
-$("pdf").onclick = () => window.print();
-$("cp").onclick = async () => { await navigator.clipboard.writeText(last.export || last.brief); $("cp").textContent = "Copied"; setTimeout(() => $("cp").textContent = "Copy text", 1500); };
+$("cp").onclick = async () => {
+  try { await navigator.clipboard.writeText(last.export || last.brief); $("cp").textContent = "Copied"; }
+  catch (e) { $("cp").textContent = "Copy failed"; }
+  setTimeout(() => $("cp").textContent = "Copy", 1500);
+};
+$("pdf").onclick = () => { $("srcs").open = true; window.print(); };
 </script>
 </body>
 </html>
