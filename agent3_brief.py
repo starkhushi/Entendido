@@ -8,7 +8,7 @@ and writing. Output: output/<company>.md with numbered sources.
 import os, re, sys, json, time, datetime
 import logging
 import requests
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from bs4 import BeautifulSoup
 from ddgs import DDGS
 from dotenv import load_dotenv
@@ -30,8 +30,10 @@ def ask(prompt, json_mode=False, retries=4, models=None):
     """Call Gemini with model fallback and backoff on 429/503."""
     cfg = types.GenerateContentConfig(
         response_mime_type="application/json" if json_mode else None)
-    last = None
+    last, start = None, time.time()
     for attempt in range(retries):
+        if attempt and time.time() - start > 90:
+            break
         for m in (models or MODELS):
             try:
                 r = client.models.generate_content(model=m, contents=prompt, config=cfg)
@@ -89,6 +91,7 @@ def search_tavily(q, n, news=False):
 
 def search_google(q, n, engine="google"):
     """SearchApi.io (Google web or Google News). Returns [] if no key or on error."""
+    global SERP_KEY
     if not SERP_KEY:
         return []
     try:
@@ -113,6 +116,8 @@ def search_google(q, n, engine="google"):
                         "date": (x.get("date") or "")[:12], "snippet": x.get("snippet", "")})
         return out
     except Exception as e:
+        if "429" in str(e):  # out of credits: stop trying SearchApi for this run
+            SERP_KEY = None
         print(f"  google search failed for {q!r}: {str(e)[:60]}")
         return []
 
@@ -138,6 +143,21 @@ SKIP = ("linkedin.com/in/", "zoominfo.com", "signalhire.com", "ambitionbox.com",
         "x.com/", "twitter.com/", "facebook.com/")
 
 
+def parallel(fn, items, workers, seconds, default):
+    """Run fn over items in parallel. Anything not done within `seconds` gets `default`."""
+    pool = ThreadPoolExecutor(max_workers=workers)
+    futs = [pool.submit(fn, x) for x in items]
+    wait(futs, timeout=seconds)
+    pool.shutdown(wait=False, cancel_futures=True)
+    out = []
+    for f, x in zip(futs, items):
+        try:
+            out.append(f.result() if f.done() else default(x))
+        except Exception:
+            out.append(default(x))
+    return out
+
+
 def search(queries, news_queries, per_query=6, cap=30):
     """Run every query in parallel, then pick results round-robin so each query gets a share."""
     jobs = [(q, "google_news") for q in news_queries] + [(q, "google") for q in queries]
@@ -149,8 +169,7 @@ def search(queries, news_queries, per_query=6, cap=30):
                 or search_google(q, per_query, engine=engine)
                 or ([] if news else search_ddg(q, per_query)))
 
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        buckets = list(pool.map(one, jobs))
+    buckets = parallel(one, jobs, workers=8, seconds=25, default=lambda j: [])
     seen, hits = set(), []
     for i in range(per_query):
         for b in buckets:
@@ -249,8 +268,8 @@ def run(company, focus="", log=print, save=True, detailed=False):
     log(f"Searching Google with {len(queries) + len(news_queries)} queries")
     hits = search(queries, news_queries)
     log(f"Reading {len(hits)} pages")
-    with ThreadPoolExecutor(max_workers=16) as pool:
-        fetched = list(pool.map(lambda h: fetch_text(h["url"]), hits))
+    fetched = parallel(lambda h: fetch_text(h["url"]), hits, workers=16, seconds=20,
+                       default=lambda h: (h["url"], ""))
     sources, seen_final = [], set()
     for h, (final_url, text) in zip(hits, fetched):
         h["url"], h["text"] = final_url, text
