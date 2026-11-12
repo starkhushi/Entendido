@@ -1,0 +1,6 @@
+google-genai>=2.28
+python-dotenv
+ddgs
+requests
+beautifulsoup4
+pypdf

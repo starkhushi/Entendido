@@ -1,0 +1,37 @@
+name: Agent 3 - prospect brief
+
+on:
+  workflow_dispatch:
+    inputs:
+      company:
+        description: "Company name, e.g. Emcure Pharmaceuticals"
+        required: true
+      focus:
+        description: "Optional focus, e.g. the India unit"
+        required: false
+        default: ""
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Write brief
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
+          PYTHONUTF8: "1"
+          COMPANY: ${{ inputs.company }}
+          FOCUS: ${{ inputs.focus }}
+        run: python agent3_brief.py "$COMPANY" "$FOCUS"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brief
+          path: output/
+          retention-days: 30

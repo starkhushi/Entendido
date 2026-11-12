@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+# Briefs contain sensitive research. Keep them out of git.
+output/
