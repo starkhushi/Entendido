@@ -38,7 +38,33 @@ python agent3_brief.py "Emcure Pharmaceuticals" "the Gennova Biopharmaceuticals 
 Output lands in `output/<company>.md` with the sources in `output/<company>.sources.json`.
 A run takes two or three minutes and uses two Gemini calls.
 
-## Run Agent 3 from GitHub (no laptop needed)
+## Web page for the team (Streamlit)
+
+`app.py` is a one-page site: type a company, click "Write brief", read or download it.
+
+Run it on your laptop:
+
+```
+streamlit run app.py
+```
+
+Host it free on Streamlit Community Cloud so the team just opens a link:
+
+1. Go to share.streamlit.io and sign in with GitHub.
+2. Click "Create app", choose this repository, branch `main`, file `app.py`.
+3. Under Advanced settings, pick Python 3.12 and paste into Secrets:
+
+   ```
+   GEMINI_API_KEY = "..."
+   SERP_API_KEY = "..."
+   APP_PASSWORD = "pick-a-team-password"
+   ```
+
+4. Deploy, then share the link and the password with the team.
+
+The password stops strangers using up the free API quota.
+
+## Run Agent 3 from GitHub Actions
 
 1. Keep this repository **private**. Briefs and `entendido_context.md` are internal.
 2. In Settings, Secrets and variables, Actions, add `GEMINI_API_KEY` and `SERP_API_KEY`.

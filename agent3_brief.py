@@ -2,7 +2,7 @@
 
 Usage:  python agent3_brief.py "Company name" ["optional focus, e.g. the India unit"]
 
-Free stack: DuckDuckGo search (no key) + page fetch + Gemini free tier for planning
+Free stack: Google via SearchApi.io (DuckDuckGo fallback) + page fetch + Gemini free tier for planning
 and writing. Output: output/<company>.md with numbered sources.
 """
 import os, re, sys, json, time, datetime
@@ -214,22 +214,13 @@ SOURCES:
     return ask(prompt)
 
 
-def main():
-    if len(sys.argv) < 2:
-        print(__doc__)
-        sys.exit(1)
-    company = sys.argv[1]
-    focus = sys.argv[2] if len(sys.argv) > 2 else ""
-    print(f"[1/4] Planning queries for {company}")
+def run(company, focus="", log=print):
+    """Research a company and return (brief_markdown, sources). Also saves to output/."""
+    log(f"Planning searches for {company}")
     queries, news_queries = plan_queries(company, focus)
-    for q in news_queries:
-        print("   - [news]", q)
-    for q in queries:
-        print("   -", q)
-    print("[2/4] Searching")
+    log(f"Searching Google with {len(queries) + len(news_queries)} queries")
     hits = search(queries, news_queries)
-    print(f"   {len(hits)} unique results")
-    print("[3/4] Reading pages")
+    log(f"Reading {len(hits)} pages")
     sources, seen_final = [], set()
     for h in hits:
         h["url"], h["text"] = fetch_text(h["url"])
@@ -238,8 +229,7 @@ def main():
         seen_final.add(h["url"])
         if h["text"] or h["snippet"]:
             sources.append(h)
-    print(f"   {len(sources)} sources with content")
-    print("[4/4] Writing brief")
+    log(f"Writing brief from {len(sources)} sources")
     brief = write_brief(company, focus, sources)
     slug = re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")
     os.makedirs(os.path.join(HERE, "output"), exist_ok=True)
@@ -248,7 +238,15 @@ def main():
         f.write(brief)
     with open(os.path.join(HERE, "output", f"{slug}.sources.json"), "w", encoding="utf-8") as f:
         json.dump(sources, f, indent=1, ensure_ascii=False)
-    print(f"Done -> {path}")
+    log(f"Saved {path}")
+    return brief, sources
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(__doc__)
+        sys.exit(1)
+    run(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else "")
 
 
 if __name__ == "__main__":
