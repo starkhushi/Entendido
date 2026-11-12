@@ -40,7 +40,7 @@ A run takes two or three minutes and uses two Gemini calls.
 
 ## Web page for the team (Vercel)
 
-`public/index.html` is the page and `api/brief.py` is the backend. The team opens the
+`public/index.html` is the page and `app.py` is the backend (a small Flask app). The team opens the
 link, types a company, enters the team password and clicks "Write brief". The brief
 shows on screen with Download and Copy buttons. A run takes one to two minutes.
 

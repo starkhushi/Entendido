@@ -1,8 +1,8 @@
 {
   "functions": {
-    "api/brief.py": {
+    "app.py": {
       "maxDuration": 300,
-      "includeFiles": "{agent3_brief.py,entendido_context.md}"
+      "includeFiles": "{agent3_brief.py,entendido_context.md,public/index.html}"
     }
   }
 }
