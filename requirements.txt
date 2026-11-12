@@ -4,4 +4,3 @@ ddgs
 requests
 beautifulsoup4
 pypdf
-streamlit

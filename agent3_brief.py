@@ -6,7 +6,9 @@ Free stack: Google via SearchApi.io (DuckDuckGo fallback) + page fetch + Gemini 
 and writing. Output: output/<company>.md with numbered sources.
 """
 import os, re, sys, json, time, datetime
+import logging
 import requests
+from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
 from ddgs import DDGS
 from dotenv import load_dotenv
@@ -14,6 +16,7 @@ from google import genai
 from google.genai import types
 
 load_dotenv()
+logging.getLogger("pypdf").setLevel(logging.ERROR)  # font warnings from annual-report PDFs
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 MODELS = ["gemini-3.5-flash", "gemini-3.1-flash-lite"]  # free-tier models that answered today
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -114,14 +117,16 @@ SKIP = ("linkedin.com/in/", "zoominfo.com", "signalhire.com", "ambitionbox.com",
 
 
 def search(queries, news_queries, per_query=6, cap=30):
-    """Run every query, then pick results round-robin so each query gets a share."""
-    buckets = []
-    for q in news_queries:            # recent dated coverage
-        buckets.append(search_google(q, per_query, engine="google_news"))
-        time.sleep(1)
-    for q in queries:
-        buckets.append(search_google(q, per_query) or search_ddg(q, per_query))
-        time.sleep(1)
+    """Run every query in parallel, then pick results round-robin so each query gets a share."""
+    jobs = [(q, "google_news") for q in news_queries] + [(q, "google") for q in queries]
+
+    def one(job):
+        q, engine = job
+        r = search_google(q, per_query, engine=engine)
+        return r if r or engine == "google_news" else search_ddg(q, per_query)
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        buckets = list(pool.map(one, jobs))
     seen, hits = set(), []
     for i in range(per_query):
         for b in buckets:
@@ -138,7 +143,7 @@ def search(queries, news_queries, per_query=6, cap=30):
 def fetch_text(url, limit=5000):
     """Return (final_url, text). Follows redirects, reads HTML or PDF."""
     try:
-        r = requests.get(url, timeout=15, allow_redirects=True, headers={
+        r = requests.get(url, timeout=10, allow_redirects=True, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                           "(KHTML, like Gecko) Chrome/130.0 Safari/537.36",
             "Accept-Language": "en-IN,en;q=0.9"})
@@ -214,16 +219,18 @@ SOURCES:
     return ask(prompt)
 
 
-def run(company, focus="", log=print):
+def run(company, focus="", log=print, save=True):
     """Research a company and return (brief_markdown, sources). Also saves to output/."""
     log(f"Planning searches for {company}")
     queries, news_queries = plan_queries(company, focus)
     log(f"Searching Google with {len(queries) + len(news_queries)} queries")
     hits = search(queries, news_queries)
     log(f"Reading {len(hits)} pages")
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        fetched = list(pool.map(lambda h: fetch_text(h["url"]), hits))
     sources, seen_final = [], set()
-    for h in hits:
-        h["url"], h["text"] = fetch_text(h["url"])
+    for h, (final_url, text) in zip(hits, fetched):
+        h["url"], h["text"] = final_url, text
         if h["url"] in seen_final or any(s in h["url"] for s in SKIP):
             continue
         seen_final.add(h["url"])
@@ -231,14 +238,15 @@ def run(company, focus="", log=print):
             sources.append(h)
     log(f"Writing brief from {len(sources)} sources")
     brief = write_brief(company, focus, sources)
-    slug = re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")
-    os.makedirs(os.path.join(HERE, "output"), exist_ok=True)
-    path = os.path.join(HERE, "output", f"{slug}.md")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(brief)
-    with open(os.path.join(HERE, "output", f"{slug}.sources.json"), "w", encoding="utf-8") as f:
-        json.dump(sources, f, indent=1, ensure_ascii=False)
-    log(f"Saved {path}")
+    if save:  # the Vercel filesystem is read-only, so the web version skips this
+        slug = re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")
+        os.makedirs(os.path.join(HERE, "output"), exist_ok=True)
+        path = os.path.join(HERE, "output", f"{slug}.md")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(brief)
+        with open(os.path.join(HERE, "output", f"{slug}.sources.json"), "w", encoding="utf-8") as f:
+            json.dump(sources, f, indent=1, ensure_ascii=False)
+        log(f"Saved {path}")
     return brief, sources
 
 

@@ -38,31 +38,21 @@ python agent3_brief.py "Emcure Pharmaceuticals" "the Gennova Biopharmaceuticals 
 Output lands in `output/<company>.md` with the sources in `output/<company>.sources.json`.
 A run takes two or three minutes and uses two Gemini calls.
 
-## Web page for the team (Streamlit)
+## Web page for the team (Vercel)
 
-`app.py` is a one-page site: type a company, click "Write brief", read or download it.
+`public/index.html` is the page and `api/brief.py` is the backend. The team opens the
+link, types a company, enters the team password and clicks "Write brief". The brief
+shows on screen with Download and Copy buttons. A run takes one to two minutes.
 
-Run it on your laptop:
+Deploy free on Vercel Hobby:
 
-```
-streamlit run app.py
-```
+1. Go to vercel.com, sign in with GitHub, click "Add New", then "Project".
+2. Import this repository. Leave Framework Preset as "Other" and the build settings empty.
+3. Under Environment Variables add `GEMINI_API_KEY`, `SERP_API_KEY` and `APP_PASSWORD`.
+4. Click Deploy. Every `git push` redeploys automatically.
 
-Host it free on Streamlit Community Cloud so the team just opens a link:
-
-1. Go to share.streamlit.io and sign in with GitHub.
-2. Click "Create app", choose this repository, branch `main`, file `app.py`.
-3. Under Advanced settings, pick Python 3.12 and paste into Secrets:
-
-   ```
-   GEMINI_API_KEY = "..."
-   SERP_API_KEY = "..."
-   APP_PASSWORD = "pick-a-team-password"
-   ```
-
-4. Deploy, then share the link and the password with the team.
-
-The password stops strangers using up the free API quota.
+The password stops strangers using up the free API quota. Vercel cuts a request off
+at 5 minutes. Searches and page reads run in parallel to stay well inside that.
 
 ## Run Agent 3 from GitHub Actions
 
