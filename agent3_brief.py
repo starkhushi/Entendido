@@ -83,10 +83,12 @@ def plan_queries(company, focus):
         f"{company} restructuring attrition layoffs",
         f"{company} annual report 2025-26",
         f"{company} leadership development programme employees",
+        f"{company} learning and development academy training initiative",
     ]
     if focus:
         queries.insert(0, f"{company} {focus}")
-    news_queries = [company] + ([f"{company} {focus}"] if focus else []) + [f"{company} complaint case"]
+    news_queries = ([company] + ([f"{company} {focus}"] if focus else [])
+                    + [f"{company} appoints CEO head", f"{company} complaint case"])
     return queries, news_queries
 
 
@@ -210,8 +212,50 @@ def search(queries, news_queries, per_query=6, cap=30):
     return hits[:cap]
 
 
+def parse_date(d):
+    """Turn the many date formats search engines and pages use into YYYY-MM-DD, or ''."""
+    from email.utils import parsedate_to_datetime
+    d = (d or "").strip()
+    if not d:
+        return ""
+    tries = (lambda x: parsedate_to_datetime(x),
+             lambda x: datetime.datetime.strptime(x[:16].strip(), "%a, %d %b %Y"),
+             lambda x: datetime.datetime.fromisoformat(x[:10]),
+             lambda x: datetime.datetime.strptime(x[:12].strip(), "%b %d, %Y"),
+             lambda x: datetime.datetime.strptime(x.strip(), "%d %b %Y"),
+             lambda x: datetime.datetime.strptime(x.strip(), "%B %d, %Y"))
+    for t in tries:
+        try:
+            when = t(d)
+            if 2000 <= when.year <= datetime.date.today().year + 1:
+                return when.strftime("%Y-%m-%d")
+        except Exception:
+            pass
+    m = re.search(r"(\d+)\s+(day|week|month|year)s?\s+ago", d)
+    if m:
+        days = int(m.group(1)) * {"day": 1, "week": 7, "month": 30, "year": 365}[m.group(2)]
+        return (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
+    return ""
+
+
+def page_date(soup):
+    """Publish date from a page's own metadata, so undated search results get one."""
+    for attrs in ({"property": "article:published_time"}, {"property": "og:published_time"},
+                  {"name": "publish-date"}, {"name": "pubdate"}, {"itemprop": "datePublished"},
+                  {"name": "date"}, {"property": "article:modified_time"}):
+        tag = soup.find("meta", attrs=attrs)
+        if tag and parse_date(tag.get("content")):
+            return parse_date(tag.get("content"))
+    for script in soup.find_all("script", type="application/ld+json"):
+        m = re.search(r'"datePublished"\s*:\s*"([^"]+)"', script.string or "")
+        if m and parse_date(m.group(1)):
+            return parse_date(m.group(1))
+    t = soup.find("time", attrs={"datetime": True})
+    return parse_date(t["datetime"]) if t else ""
+
+
 def fetch_text(url, limit=5000):
-    """Return (final_url, text). Follows redirects, reads HTML or PDF."""
+    """Return (final_url, text, page_date). Follows redirects, reads HTML or PDF."""
     try:
         r = requests.get(url, timeout=6, allow_redirects=True, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -232,14 +276,48 @@ def fetch_text(url, limit=5000):
                     chunks.append(re.sub(r"\s+", " ", t))
                 if sum(len(c) for c in chunks) > limit * 3:
                     break
-            return url, " ".join(chunks)[: limit * 3]
+            return url, " ".join(chunks)[: limit * 3], ""
         soup = BeautifulSoup(r.text, "html.parser")
+        published = page_date(soup)
         for t in soup(["script", "style", "nav", "footer", "header", "noscript"]):
             t.decompose()
         text = re.sub(r"\s+", " ", soup.get_text(" ")).strip()
-        return url, text[:limit]
+        return url, text[:limit], published
     except Exception:
-        return url, ""
+        return url, "", ""
+
+
+FIT_WEIGHTS = [("Evidence of need", 30), ("Capability fit", 25), ("Decision-maker access", 15),
+               ("Urgency", 15), ("Commercial feasibility", 15)]
+
+
+def score_fit(fit):
+    """Attach weights, compute the weighted total out of 5 and the High/Medium/Low label."""
+    by_name = {str(f.get("criterion", "")).lower(): f for f in fit if isinstance(f, dict)}
+    rows = []
+    for i, (name, w) in enumerate(FIT_WEIGHTS):
+        f = by_name.get(name.lower()) or (fit[i] if i < len(fit) and isinstance(fit[i], dict) else {})
+        try:
+            sc = max(0, min(5, int(round(float(f.get("score") or 0)))))
+        except Exception:
+            sc = 0
+        rows.append({"criterion": name, "weight": w, "score": sc,
+                     "why": f.get("why", ""), "cite": f.get("cite", [])})
+    raw = sum(r["score"] * r["weight"] for r in rows) / 100
+    label = "High" if raw >= 3.5 else "Medium" if raw >= 2.5 else "Low"  # label from the unrounded score
+    return rows, round(raw, 2), label
+
+
+def fit_section(viz, reason):
+    """Markdown for the Fit Score section, from the computed score."""
+    cite = lambda c: f" [{', '.join(map(str, c))}]" if isinstance(c, list) and c else ""
+    lines = [f"**{viz['fit_label']}: {viz['fit_total']} out of 5** (weighted)", "",
+             "| Factor | Weight | Score | Evidence |", "| :--- | :--- | :--- | :--- |"]
+    lines += [f"| {r['criterion']} | {r['weight']}% | {r['score']}/5 | {r['why']}{cite(r['cite'])} |"
+              for r in viz["fit"]]
+    if reason:
+        lines += ["", reason]
+    return "\n".join(lines)
 
 
 def split_viz(text):
@@ -252,32 +330,35 @@ def split_viz(text):
     except Exception:
         viz = {}
     viz = viz if isinstance(viz, dict) else {}
+    if viz.get("fit"):
+        viz["fit"], viz["fit_total"], viz["fit_label"] = score_fit(viz["fit"])
     # A trend chart must compare like with like: all years or all quarters, 2+ points.
     t = viz.get("trend") or {}
     pts = [p for p in t.get("points", []) if isinstance(p.get("y"), (int, float))]
     kinds = {bool(re.search(r"Q[1-4]|H[12]", str(p.get("x")))) for p in pts}
     viz["trend"] = dict(t, points=pts) if len(pts) >= 2 and len(kinds) == 1 else None
-    return text.strip()[:m.start()].rstrip(), viz
+    brief = text.strip()[:m.start()].rstrip()
+    if viz.get("fit"):
+        # Replace whatever the model wrote under Fit Score with the computed table,
+        # keeping its one-sentence reason.
+        fm = re.search(r"(## Fit Score\s*\n)(.*?)(?=\n## |\Z)", brief, re.S)
+        if fm:
+            reason = " ".join(l.strip() for l in fm.group(2).strip().splitlines()
+                              if l.strip() and not l.strip().startswith("|"))
+            # Drop any score or label the model wrote, e.g. "**3.2 (Medium)**." or "High:".
+            reason = re.sub(r"^\W*(\d(\.\d+)?\s*(/\s*5|out of 5)?\s*)?\(?\s*(High|Medium|Low)?\s*\)?\W*(fit)?[\s:.\-]*",
+                            "", reason, flags=re.I) if re.match(r"^\W*(\d|High|Medium|Low)", reason, re.I) else reason
+            brief = brief[:fm.start()] + fm.group(1) + fit_section(viz, reason) + "\n" + brief[fm.end():]
+    return brief, viz
 
 
 def coverage(sources):
-    """Count dated sources per month, from the dates the search engines returned."""
-    from email.utils import parsedate_to_datetime
+    """Count dated sources per month."""
     counts = {}
-    for s in sources:
-        d, when = (s.get("date") or "").strip(), None
-        for parse in (lambda x: parsedate_to_datetime(x),
-                      lambda x: datetime.datetime.strptime(x[:16].strip(), "%a, %d %b %Y"),
-                      lambda x: datetime.datetime.fromisoformat(x[:10]),
-                      lambda x: datetime.datetime.strptime(x[:12].strip(), "%b %d, %Y")):
-            try:
-                when = parse(d)
-                break
-            except Exception:
-                pass
-        if when:
-            key = when.strftime("%Y-%m")
-            counts[key] = counts.get(key, 0) + 1
+    for x in sources:
+        d = parse_date(x.get("date"))
+        if d:
+            counts[d[:7]] = counts.get(d[:7], 0) + 1
     if not counts:
         return []
     # Fill empty months so the time axis is even. Show at most the last 12.
@@ -305,12 +386,11 @@ def glance_md(viz):
                 for k in kn[:4]]
     fit = viz.get("fit") or []
     if fit:
-        scores = [max(0, min(5, int(f.get("score") or 0))) for f in fit]
-        out += ["", f"**Fit signals: {sum(scores) / len(scores):.1f} out of 5 on average** "
+        out += ["", f"**Fit: {viz.get('fit_label', '')}, {viz.get('fit_total', '')} out of 5, weighted** "
                     "(the agent's judgement, not facts)", "",
-                "| Signal | Score | Why |", "| :--- | :--- | :--- |"]
-        out += [f"| {f.get('criterion', '')} | {'█' * sc}{'░' * (5 - sc)} {sc}/5 | {f.get('why', '')} |"
-                for f, sc in zip(fit, scores)]
+                "| Factor | Weight | Score |", "| :--- | :--- | :--- |"]
+        out += [f"| {f['criterion']} | {f['weight']}% | {'█' * f['score']}{'░' * (5 - f['score'])} {f['score']}/5 |"
+                for f in fit]
     tl = sorted(viz.get("timeline") or [], key=lambda e: str(e.get("date")))
     if tl:
         out += ["", "| When | Event | Type |", "| :--- | :--- | :--- |"]
@@ -338,7 +418,7 @@ def with_glance(brief, viz):
 
 def write_brief(company, focus, sources, detailed=False, prompt_only=False):
     src_block = "\n\n".join(
-        f"[{i}] {s['title']} ({s['date'] or 'n.d.'}) {s['url']}\n{s['snippet']}\n{s['text']}"
+        f"[{i}] {s['title']} (published {s['date'] or 'date unknown'}) {s['url']}\n{s['snippet']}\n{s['text']}"
         for i, s in enumerate(sources, 1))
     prompt = f"""You write one-page prospect briefs for Entendido. Context about us:
 {CONTEXT}
@@ -349,14 +429,38 @@ Use ONLY the numbered sources below. Every factual statement carries a citation 
 If something is unknown, say "not found in sources" rather than guessing.
 Write in Entendido's voice: plain, specific, behavioural, no sales fluff.
 
+Sources are ordered newest first and show their publish date. When sources disagree
+(a person's title, who holds a role, a number), trust the most recent dated source and
+write the role with its date, e.g. "CEO, House of Brands (as of Sep 2026) [4]". Never
+take a current title from an undated source when a dated one exists. If a conflict
+cannot be settled by date, say so and add it to What To Establish Early.
+
+Write for someone designing a proposal: the brief must show which of our offerings
+fits best, how to tailor it, and what to explore on the first call. Use the offering
+table in the context. Pick the most specific development, not just the biggest one,
+and do not default to "leadership integration" unless the evidence points there.
+Before writing, scan every source for distinct developments, including business-model
+changes (franchise or partner model, offline centres, new channels, new categories,
+pricing or product shifts), not only deals and appointments. A business-model change
+usually points to a more specific capability need than an acquisition does. Put every
+distinct development in the Event Timeline, and take each row of Where Entendido Could
+Fit from a different kind of development, with a different need and offering.
+
 Produce Markdown with EXACTLY these sections, matching our Emcure/Gennova sample:
 # Prospect Brief: {company}
 *<the company's sector in a few words>. Created {TODAY}.*
 ## About This Research
 (two lines: we look for a big job to do + a leadership group that changed shape; this does NOT establish a problem)
 ## About The Prospect
+## Existing L&D And Internal Capabilities
+(their own academies, leadership programmes, development centres, coaching, named
+initiatives, with citations; what they already cover and the gap left for us; or
+"not found in sources")
 ## Event Timeline
 A table: | Event | When | Potential implications (derived only) |
+## Where Entendido Could Fit
+A table with the 2 or 3 most specific developments, each leading to a different need:
+| Development | Specific capability need (derived) | Best-fit offering | How to tailor it | Explore in first call |
 ## Points To Remember While Pitching
 (fit rules: who to sell to, size, procurement risk, "we already do this" risk and our counter)
 ## What To Establish Early
@@ -374,7 +478,8 @@ Two lists: pursue further / abandon
 ## Estimated Timing
 (reach out, proposal, approvals, earliest delivery)
 ## Fit Score
-One line: High / Medium / Low with a one-sentence reason.
+One sentence: the main reason. Do not write a number, score or High/Medium/Low label;
+the scored table is added automatically.
 ## Sources
 Numbered list, title and URL, only the ones you cited.
 
@@ -384,17 +489,18 @@ Leave a list empty rather than guessing.
 ```json
 {{"key_numbers": [{{"label": "Employees", "value": "19,000", "note": "June 2026", "cite": [13]}}],
   "timeline": [{{"date": "2024-10", "event": "Acquired Bharat Serums", "type": "deal", "cite": [1]}}],
-  "fit": [{{"criterion": "Big job to do", "score": 4, "why": "one short line"}},
-          {{"criterion": "Leadership group changed shape", "score": 3, "why": "..."}},
-          {{"criterion": "A single unit we can sell to", "score": 3, "why": "..."}},
-          {{"criterion": "Low procurement / HR-bureaucracy risk", "score": 2, "why": "..."}},
-          {{"criterion": "Timing is now", "score": 3, "why": "..."}}],
+  "fit": [{{"criterion": "Evidence of need", "score": 3, "why": "one short line of evidence", "cite": [2]}},
+          {{"criterion": "Capability fit", "score": 4, "why": "...", "cite": [5]}},
+          {{"criterion": "Decision-maker access", "score": 2, "why": "...", "cite": []}},
+          {{"criterion": "Urgency", "score": 4, "why": "...", "cite": [1]}},
+          {{"criterion": "Commercial feasibility", "score": 3, "why": "...", "cite": []}}],
   "trend": {{"label": "Revenue (Rs crore)", "points": [{{"x": "FY24", "y": 10335}}], "cite": [4]}}
 }}
 ```
 Rules: key_numbers at most 4 (revenue, employees, deal size, market cap, growth...).
 timeline up to 8 events, date as YYYY-MM or YYYY, type one of deal, leadership,
-growth, legal. fit: exactly those five criteria, score 0 to 5. trend: one financial
+growth, legal. fit: exactly those five criteria in that order, scored 0 to 5 by the fit score framework
+in the context; existing L&D lowers capability fit only if it already covers the need. trend: one financial
 series with 2 to 6 points over time, all the same period type (all financial years or
 all quarters) and the same unit, values exactly as the source states them; or null.
 
@@ -418,15 +524,19 @@ def run_stream(company, focus="", detailed=False):
     yield {"t": "hits", "items": slim(hits)}
     yield {"t": "stage", "stage": "read", "msg": f"Reading {len(hits)} pages"}
     fetched = parallel(lambda h: fetch_text(h["url"]), hits, workers=16, seconds=20,
-                       default=lambda h: (h["url"], ""))
+                       default=lambda h: (h["url"], "", ""))
     sources, seen_final = [], set()
-    for h, (final_url, text) in zip(hits, fetched):
+    for h, (final_url, text, published) in zip(hits, fetched):
         h["url"], h["text"] = final_url, text
+        h["date"] = parse_date(h.get("date")) or published
         if h["url"] in seen_final or any(x in h["url"] for x in SKIP):
             continue
         seen_final.add(h["url"])
         if h["text"] or h["snippet"]:
             sources.append(h)
+    # Newest first, undated last, so the writer sees the latest facts first and
+    # can resolve conflicts by date.
+    sources.sort(key=lambda x: x["date"] or "0000", reverse=True)
     yield {"t": "read", "count": len(sources)}
     yield {"t": "stage", "stage": "write", "msg": f"Writing the brief from {len(sources)} sources"}
     prompt = write_brief(company, focus, sources, detailed, prompt_only=True)

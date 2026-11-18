@@ -135,6 +135,7 @@
   .meter { display:grid; grid-template-columns:minmax(0,1fr) 120px 30px; gap:2px 12px; align-items:center; margin:0 0 12px; }
   .meter .name { font-size:13.5px; font-weight:500; }
   .meter .why { grid-column:1 / -1; color:var(--muted); font-size:12.5px; }
+  .wt { color:var(--muted); font-weight:500; font-size:12px; }
   .track { height:8px; border-radius:4px; background:var(--track); overflow:hidden; }
   .fill { height:100%; border-radius:4px; background:var(--series-1); width:0; transition:width .8s cubic-bezier(.2,.8,.2,1); }
   .meter .fig { font-variant-numeric:tabular-nums; font-size:13px; text-align:right; color:var(--ink-2); }
@@ -286,7 +287,7 @@
     <details class="card src-list" id="srcs" hidden><summary id="srcs-sum">Sources</summary><ol id="srcs-ol"></ol></details>
   </section>
 </div>
-<footer>Built on free tiers: Tavily search and Gemini. Facts carry source numbers. Check names before outreach. Version 4</footer>
+<footer>Built on free tiers: Tavily search and Gemini. Facts carry source numbers. Check names before outreach. Version 5</footer>
 <div id="tip" role="tooltip"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
@@ -406,7 +407,8 @@ function finishBrief(data) {
   });
   art.querySelectorAll("a[href^='http']").forEach(a => { a.target = "_blank"; a.rel = "noopener"; });
   // Fit badge from the Fit Score section.
-  const fm = data.brief.match(/##\s*Fit Score\s*\n+\s*\**\s*(High|Medium|Low)/i);
+  const fm = data.viz && data.viz.fit_label ? [null, data.viz.fit_label]
+    : data.brief.match(/##\s*Fit Score\s*\n+\s*\**\s*(High|Medium|Low)/i);
   const badge = $("r-badge");
   if (fm) { const v = fm[1][0].toUpperCase() + fm[1].slice(1).toLowerCase(); badge.className = "badge " + v; badge.textContent = v + " fit"; badge.hidden = false; }
   else badge.hidden = true;
@@ -503,15 +505,18 @@ function renderGlance(viz) {
   const fit = viz.fit || [];
   if (fit.length) {
     const p = el("div", { class: "panel" });
-    const avg = fit.reduce((a, f) => a + (+f.score || 0), 0) / fit.length;
-    p.appendChild(el("h4", {}, "Fit signals"));
+    const total = viz.fit_total ?? fit.reduce((a, f) => a + (+f.score || 0), 0) / fit.length;
+    p.appendChild(el("h4", {}, "Fit score"));
     const o = el("div", { class: "overall" });
-    o.appendChild(el("b", {}, avg.toFixed(1))); o.appendChild(el("span", {}, "out of 5 on average"));
+    o.appendChild(el("b", {}, (+total).toFixed(1)));
+    o.appendChild(el("span", {}, viz.fit_label ? `out of 5, weighted · ${viz.fit_label} fit` : "out of 5"));
     p.appendChild(o);
     fit.forEach(f => {
       const sc = Math.max(0, Math.min(5, +f.score || 0));
       const m = el("div", { class: "meter" });
-      m.appendChild(el("div", { class: "name" }, f.criterion));
+      const nm = el("div", { class: "name" }, f.criterion);
+      if (f.weight) nm.appendChild(el("span", { class: "wt" }, ` ${f.weight}%`));
+      m.appendChild(nm);
       const tr = el("div", { class: "track", role: "meter", "aria-valuemin": 0, "aria-valuemax": 5, "aria-valuenow": sc, "aria-label": f.criterion });
       const fl = el("div", { class: "fill" }); fl.dataset.w = (sc / 5 * 100) + "%";
       tr.appendChild(fl); m.appendChild(tr);

@@ -90,6 +90,25 @@ Rules baked into the prompt come from the Emcure and Zespri briefs and live in
 group, watch for procurement and "we already do this", never mention legal matters,
 and exclude existing clients. Edit that file to change how the agent thinks.
 
+## Fit score framework
+
+Gemini scores five factors from 0 to 5 with evidence. Python applies the weights, so
+the total and label are consistent run to run.
+
+| Factor | Weight |
+|---|---|
+| Evidence of need | 30% |
+| Capability fit (lowered when their own L&D already covers the need) | 25% |
+| Decision-maker access | 15% |
+| Urgency | 15% |
+| Commercial feasibility | 15% |
+
+High is 3.5 and above, Medium 2.5 to 3.4, Low below 2.5. The weights and the
+offering-to-development map live in `entendido_context.md`, so the team can change them.
+
+When sources conflict, the newest dated source wins. Page publish dates are read from
+each page's metadata, sources are ordered newest first, and roles carry an "as of" date.
+
 ## Known limits
 
 - Google Search grounding inside Gemini is not on the free tier, which is why search
